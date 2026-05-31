@@ -1,0 +1,40 @@
+using SqlSugar;
+using ScadaServer.Application.Interfaces;
+
+namespace ScadaServer.Infrastructure.Persistence
+{
+    public class SqlSugarRepository<T> : IRepository<T> where T : class, new()
+    {
+        protected readonly ISqlSugarClient _db;
+
+        public SqlSugarRepository(ISqlSugarClient db)
+        {
+            _db = db;
+        }
+
+        public virtual async Task<T> GetByIdAsync(dynamic id)
+        {
+            return await _db.Queryable<T>().In(id).FirstAsync();
+        }
+
+        public virtual async Task<List<T>> GetListAsync()
+        {
+            return await _db.Queryable<T>().ToListAsync();
+        }
+
+        public virtual async Task InsertAsync(T entity)
+        {
+            await _db.Insertable(entity).ExecuteCommandAsync();
+        }
+
+        public virtual async Task UpdateAsync(T entity)
+        {
+            await _db.Updateable(entity).ExecuteCommandAsync();
+        }
+
+        public virtual async Task DeleteAsync(T entity)
+        {
+            await _db.Deleteable(entity).ExecuteCommandAsync();
+        }
+    }
+}
