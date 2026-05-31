@@ -13,7 +13,7 @@ namespace ScadaServer.Domain.Entities
         
         public int DeviceId { get; set; }
         [Navigate(NavigateType.OneToOne, nameof(DeviceId))]
-        public DeviceEntity Device { get; set; }
+        public Device Device { get; set; }
 
         /// <summary>
         /// 变量 Key (对应 ModelVariable.Key)

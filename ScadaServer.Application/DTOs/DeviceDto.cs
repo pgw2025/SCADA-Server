@@ -8,7 +8,9 @@ namespace ScadaServer.Application.DTOs
         public string Name { get; set; }
         public string Code { get; set; }
         public int AreaId { get; set; }
+        public string AreaName { get; set; }
         public int ModelId { get; set; }
+        public string ModelName { get; set; }
         public string Type { get; set; }
         public string IpAddress { get; set; }
         public int? Port { get; set; }

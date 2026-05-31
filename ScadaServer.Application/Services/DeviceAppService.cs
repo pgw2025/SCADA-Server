@@ -1,50 +1,113 @@
 using ScadaServer.Application.Interfaces;
+using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Infrastructure.Repositories;
 
 namespace ScadaServer.Application.Services
 {
     public class DeviceAppService : IDeviceAppService
     {
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IDeviceRepository _deviceRepo;
-        private readonly IRepository<ConfigLog> _logRepo;
+        private readonly DeviceRepository _repository;
+        public DeviceAppService(DeviceRepository repository) { _repository = repository; }
 
-        public DeviceAppService(
-            IUnitOfWork unitOfWork, 
-            IDeviceRepository deviceRepo, 
-            IRepository<ConfigLog> logRepo)
+        public async Task<DeviceDto> GetByIdAsync(int id)
         {
-            _unitOfWork = unitOfWork;
-            _deviceRepo = deviceRepo;
-            _logRepo = logRepo;
+            var entity = await _repository.GetByIdAsync(id);
+            if (entity == null) return null;
+            return new DeviceDto
+            {
+                Id = entity.Id,
+                Name = entity.Name,
+                Code = entity.Code,
+                AreaId = entity.AreaId,
+                AreaName = entity.Area?.Name,
+                ModelId = entity.ModelId,
+                ModelName = entity.Model?.Name,
+                Type = entity.Type,
+                IpAddress = entity.IpAddress,
+                Port = entity.Port,
+                Topic = entity.Topic,
+                Status = entity.Status,
+                CpuType = entity.CpuType,
+                Rack = entity.Rack,
+                Slot = entity.Slot,
+                LastUpdated = entity.LastUpdated
+            };
         }
 
-        public async Task UpdateDeviceConfigTxAsync(int deviceId, string newAddress)
+        public async Task<List<DeviceDto>> GetListAsync()
         {
-            _unitOfWork.BeginTran();
-
-            try
+            var list = await _repository.GetListAsync();
+            return list.Select(entity => new DeviceDto
             {
-                var device = await _deviceRepo.GetByIdAsync(deviceId);
-                if (device == null) throw new Exception("Device not found");
-                
-                device.Status = "ConfigUpdating";
-                await _deviceRepo.UpdateAsync(device);
+                Id = entity.Id,
+                Name = entity.Name,
+                Code = entity.Code,
+                AreaId = entity.AreaId,
+                AreaName = entity.Area?.Name,
+                ModelId = entity.ModelId,
+                ModelName = entity.Model?.Name,
+                Type = entity.Type,
+                IpAddress = entity.IpAddress,
+                Port = entity.Port,
+                Topic = entity.Topic,
+                Status = entity.Status,
+                CpuType = entity.CpuType,
+                Rack = entity.Rack,
+                Slot = entity.Slot,
+                LastUpdated = entity.LastUpdated
+            }).ToList();
+        }
 
-                var log = new ConfigLog { 
-                    DeviceId = deviceId, 
-                    Operator = "Admin", 
-                    ChangeDesc = $"Address changed to: {newAddress}",
-                    CreateTime = DateTime.Now 
-                };
-                await _logRepo.InsertAsync(log);
+        public async Task CreateAsync(DeviceDto dto)
+        {
+            var entity = new Device
+            {
+                Name = dto.Name,
+                Code = dto.Code,
+                AreaId = dto.AreaId,
+                ModelId = dto.ModelId,
+                Type = dto.Type,
+                IpAddress = dto.IpAddress,
+                Port = dto.Port,
+                Topic = dto.Topic,
+                Status = dto.Status,
+                CpuType = dto.CpuType,
+                Rack = dto.Rack,
+                Slot = dto.Slot,
+                LastUpdated = DateTime.Now
+            };
+            await _repository.InsertAsync(entity);
+        }
 
-                await _unitOfWork.CommitTranAsync();
+        public async Task UpdateAsync(DeviceDto dto)
+        {
+            var entity = await _repository.GetByIdAsync(dto.Id);
+            if (entity != null)
+            {
+                entity.Name = dto.Name;
+                entity.Code = dto.Code;
+                entity.AreaId = dto.AreaId;
+                entity.ModelId = dto.ModelId;
+                entity.Type = dto.Type;
+                entity.IpAddress = dto.IpAddress;
+                entity.Port = dto.Port;
+                entity.Topic = dto.Topic;
+                entity.Status = dto.Status;
+                entity.CpuType = dto.CpuType;
+                entity.Rack = dto.Rack;
+                entity.Slot = dto.Slot;
+                entity.LastUpdated = DateTime.Now;
+                await _repository.UpdateAsync(entity);
             }
-            catch (Exception)
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            var entity = await _repository.GetByIdAsync(id);
+            if (entity != null)
             {
-                await _unitOfWork.RollbackTranAsync();
-                throw;
+                await _repository.DeleteAsync(entity);
             }
         }
     }

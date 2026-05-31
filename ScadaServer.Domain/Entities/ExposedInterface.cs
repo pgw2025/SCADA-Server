@@ -19,7 +19,7 @@ namespace ScadaServer.Domain.Entities
         /// 关联设备
         /// </summary>
         [Navigate(NavigateType.OneToOne, nameof(DeviceId))]
-        public DeviceEntity Device { get; set; }
+        public Device Device { get; set; }
 
         public string ExposedKey { get; set; }
         public bool Active { get; set; }
