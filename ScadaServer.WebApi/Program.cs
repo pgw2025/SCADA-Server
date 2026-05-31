@@ -33,6 +33,7 @@ builder.Services.AddScoped<IUnitOfWork, SqlSugarUnitOfWork>();
 // 3. Register Repositories
 builder.Services.AddScoped(typeof(IRepository<>), typeof(SqlSugarRepository<>));
 builder.Services.AddScoped<IDeviceRepository, SqlSugarDeviceRepository>();
+builder.Services.AddSingleton<ScadaServer.Infrastructure.Configuration.DatabaseConfigManager>();
 
 // 4. Register Application Services
 builder.Services.AddScoped<IDeviceAppService, DeviceAppService>();

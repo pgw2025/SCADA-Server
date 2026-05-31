@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using ScadaServer.Application.Interfaces;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Infrastructure.Configuration;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -8,40 +8,53 @@ namespace ScadaServer.WebApi.Controllers
     [Route("api/[controller]")]
     public class DatabaseConfigController : ControllerBase
     {
-        private readonly IDatabaseConfigAppService _appService;
-        private readonly IDatabaseConfigRepository _repo;
+        private readonly DatabaseConfigManager _configManager;
 
-        public DatabaseConfigController(IDatabaseConfigAppService appService, IDatabaseConfigRepository repo)
+        public DatabaseConfigController(DatabaseConfigManager configManager)
         {
-            _appService = appService;
-            _repo = repo;
+            _configManager = configManager;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _repo.GetListAsync());
+        public async Task<IActionResult> GetAll() => Ok(await _configManager.GetAllAsync());
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id) => Ok(await _repo.GetByIdAsync(id));
+        public async Task<IActionResult> GetById(int id)
+        {
+            var configs = await _configManager.GetAllAsync();
+            var config = configs.FirstOrDefault(c => c.Id == id);
+            return config != null ? Ok(config) : NotFound();
+        }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] DatabaseConfig entity)
         {
-            await _repo.InsertAsync(entity);
+            var configs = await _configManager.GetAllAsync();
+            entity.Id = configs.Any() ? configs.Max(c => c.Id) + 1 : 1;
+            configs.Add(entity);
+            await _configManager.SaveAllAsync(configs);
             return Ok(entity);
         }
 
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] DatabaseConfig entity)
         {
-            await _repo.UpdateAsync(entity);
+            var configs = await _configManager.GetAllAsync();
+            var index = configs.FindIndex(c => c.Id == entity.Id);
+            if (index == -1) return NotFound();
+            configs[index] = entity;
+            await _configManager.SaveAllAsync(configs);
             return Ok();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var entity = await _repo.GetByIdAsync(id);
-            if (entity != null) await _repo.DeleteAsync(entity);
+            var configs = await _configManager.GetAllAsync();
+            var config = configs.FirstOrDefault(c => c.Id == id);
+            if (config == null) return NotFound();
+            configs.Remove(config);
+            await _configManager.SaveAllAsync(configs);
             return Ok();
         }
     }
