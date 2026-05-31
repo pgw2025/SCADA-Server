@@ -1,4 +1,5 @@
 using SqlSugar;
+using ScadaServer.Domain.Enums;
 
 namespace ScadaServer.Domain.Entities
 {
@@ -40,5 +41,8 @@ namespace ScadaServer.Domain.Entities
         /// 存储模式：变化存储/周期存储
         /// </summary>
         public string StoreMode { get; set; }
+
+        public UpdateMode UpdateMode { get; set; }
+        public int PollingIntervalMs { get; set; } = 1000;
     }
 }

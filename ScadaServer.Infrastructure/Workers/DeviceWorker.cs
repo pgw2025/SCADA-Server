@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Enums;
 using ScadaServer.Infrastructure.Communication;
+using ScadaServer.WebApi.Hubs;
 using System.Collections.Concurrent;
 
 namespace ScadaServer.Infrastructure.Workers
@@ -13,13 +16,15 @@ namespace ScadaServer.Infrastructure.Workers
         private readonly ILogger<DeviceWorker> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly DeviceRegistry _registry;
+        private readonly IHubContext<ScadaHub> _hubContext;
         private readonly ConcurrentDictionary<int, CancellationTokenSource> _deviceTasks = new();
 
-        public DeviceWorker(ILogger<DeviceWorker> logger, IServiceProvider serviceProvider, DeviceRegistry registry)
+        public DeviceWorker(ILogger<DeviceWorker> logger, IServiceProvider serviceProvider, DeviceRegistry registry, IHubContext<ScadaHub> hubContext)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _registry = registry;
+            _hubContext = hubContext;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -27,7 +32,6 @@ namespace ScadaServer.Infrastructure.Workers
             _logger.LogInformation("Acquisition Engine Started.");
             await ReloadAll();
 
-            // 监听配置变更或新设备发现逻辑可以在此添加
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(5000, stoppingToken);
@@ -36,13 +40,11 @@ namespace ScadaServer.Infrastructure.Workers
 
         public async void RefreshDevice(int deviceId)
         {
-            // 取消旧任务
             if (_deviceTasks.TryRemove(deviceId, out var cts))
             {
                 cts.Cancel();
             }
 
-            // 重新从DB加载配置到Registry
             using var scope = _serviceProvider.CreateScope();
             var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
             var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
@@ -57,7 +59,6 @@ namespace ScadaServer.Infrastructure.Workers
             var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
             _registry.UpdateDevice(device, variables);
 
-            // 启动新任务
             var newCts = new CancellationTokenSource();
             _deviceTasks[deviceId] = newCts;
             _ = Task.Run(() => RunDeviceAcquisition(deviceId, newCts.Token), newCts.Token);
@@ -89,33 +90,38 @@ namespace ScadaServer.Infrastructure.Workers
             var config = _registry.GetDeviceConfig(deviceId);
             if (config == null) return;
 
-            var (device, metrics) = config.Value;
-            _logger.LogInformation($"Starting acquisition for {device.Name}");
-            
-            IProtocolDriver driver = device.Type == "S7" ? new S7Driver() : new OpcUaDriver(); // 假设Type字段映射到协议类型
+            var (device, allVariables) = config.Value;
+            var pollingVars = allVariables.Where(v => v.UpdateMode == UpdateMode.Polling).ToList();
+            var subscriptionVars = allVariables.Where(v => v.UpdateMode == UpdateMode.Subscription).ToList();
+
+            IProtocolDriver driver = device.Type == "S7" ? new S7Driver() : new OpcUaDriver();
             
             try 
             {
-                if (await driver.ConnectAsync(device.IpAddress)) // 假设连接字符串是IpAddress
+                if (await driver.ConnectAsync(device.IpAddress))
                 {
+                    // 订阅模式
+                    foreach (var v in subscriptionVars) {
+                        await driver.SubscribeAsync(v, (val) => {
+                             _hubContext.Clients.All.SendAsync("ReceiveVariableUpdate", v.Key, val);
+                        });
+                    }
+
+                    // 轮询模式
                     while (!stoppingToken.IsCancellationRequested)
                     {
-                        foreach (var metric in metrics)
+                        foreach (var v in pollingVars)
                         {
-                            var val = await driver.ReadAsync(metric);
-                            // 这里添加推送给 SignalR 的逻辑
-                            _logger.LogInformation($"Device: {device.Name}, Metric: {metric.Key}, Value: {val}");
+                            var val = await driver.ReadAsync(v);
+                            await _hubContext.Clients.All.SendAsync("ReceiveVariableUpdate", v.Key, val);
                         }
                         await Task.Delay(1000, stoppingToken);
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error in acquisition for {device.Name}");
-            }
             finally
             {
+                foreach (var v in subscriptionVars) await driver.UnsubscribeAsync(v);
                 await driver.DisconnectAsync();
             }
         }
