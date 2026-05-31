@@ -8,41 +8,35 @@ namespace ScadaServer.Application.Services
     public class ScadaPageAppService : IScadaPageAppService
     {
         private readonly ScadaPageRepository _repository;
-        public ScadaPageAppService(ScadaPageRepository repository) { _repository = repository; }
+        private readonly HmiComponentRepository _componentRepository;
+        private readonly IUnitOfWork _uow;
+
+        public ScadaPageAppService(
+            ScadaPageRepository repository,
+            HmiComponentRepository componentRepository,
+            IUnitOfWork uow) 
+        { 
+            _repository = repository; 
+            _componentRepository = componentRepository;
+            _uow = uow;
+        }
 
         public async Task<ScadaPageDto> GetByIdAsync(int id)
         {
             var entity = await _repository.GetByIdAsync(id);
             if (entity == null) return null;
-            return new ScadaPageDto
-            {
-                Id = entity.Id,
-                ProjectId = entity.ProjectId,
-                Name = entity.Name,
-                IsHome = entity.IsHome
-            };
+            return new ScadaPageDto { Id = entity.Id, ProjectId = entity.ProjectId, Name = entity.Name, IsHome = entity.IsHome };
         }
 
         public async Task<List<ScadaPageDto>> GetListAsync()
         {
             var list = await _repository.GetListAsync();
-            return list.Select(entity => new ScadaPageDto
-            {
-                Id = entity.Id,
-                ProjectId = entity.ProjectId,
-                Name = entity.Name,
-                IsHome = entity.IsHome
-            }).ToList();
+            return list.Select(entity => new ScadaPageDto { Id = entity.Id, ProjectId = entity.ProjectId, Name = entity.Name, IsHome = entity.IsHome }).ToList();
         }
 
         public async Task CreateAsync(ScadaPageDto dto)
         {
-            var entity = new ScadaPage
-            {
-                ProjectId = dto.ProjectId,
-                Name = dto.Name,
-                IsHome = dto.IsHome
-            };
+            var entity = new ScadaPage { ProjectId = dto.ProjectId, Name = dto.Name, IsHome = dto.IsHome };
             await _repository.InsertAsync(entity);
         }
 
@@ -51,7 +45,6 @@ namespace ScadaServer.Application.Services
             var entity = await _repository.GetByIdAsync(dto.Id);
             if (entity != null)
             {
-                entity.ProjectId = dto.ProjectId;
                 entity.Name = dto.Name;
                 entity.IsHome = dto.IsHome;
                 await _repository.UpdateAsync(entity);
@@ -60,10 +53,22 @@ namespace ScadaServer.Application.Services
 
         public async Task DeleteAsync(int id)
         {
-            var entity = await _repository.GetByIdAsync(id);
-            if (entity != null)
+            _uow.BeginTran();
+            try
             {
-                await _repository.DeleteAsync(entity);
+                // 删除页面下所有组件
+                await _componentRepository.DeleteRangeAsync(c => c.PageId == id);
+
+                // 删除页面
+                var entity = await _repository.GetByIdAsync(id);
+                if (entity != null) await _repository.DeleteAsync(entity);
+
+                await _uow.CommitTranAsync();
+            }
+            catch
+            {
+                await _uow.RollbackTranAsync();
+                throw;
             }
         }
     }

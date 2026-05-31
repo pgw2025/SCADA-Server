@@ -8,7 +8,27 @@ namespace ScadaServer.Application.Services
     public class DeviceAppService : IDeviceAppService
     {
         private readonly DeviceRepository _repository;
-        public DeviceAppService(DeviceRepository repository) { _repository = repository; }
+        private readonly SensorRepository _sensorRepository;
+        private readonly VariableTriggerRepository _triggerRepository;
+        private readonly RealtimeDataRepository _realtimeDataRepository;
+        private readonly ExposedInterfaceRepository _interfaceRepository;
+        private readonly IUnitOfWork _uow;
+
+        public DeviceAppService(
+            DeviceRepository repository, 
+            SensorRepository sensorRepository,
+            VariableTriggerRepository triggerRepository,
+            RealtimeDataRepository realtimeDataRepository,
+            ExposedInterfaceRepository interfaceRepository,
+            IUnitOfWork uow) 
+        { 
+            _repository = repository; 
+            _sensorRepository = sensorRepository;
+            _triggerRepository = triggerRepository;
+            _realtimeDataRepository = realtimeDataRepository;
+            _interfaceRepository = interfaceRepository;
+            _uow = uow;
+        }
 
         public async Task<DeviceDto> GetByIdAsync(int id)
         {
@@ -20,9 +40,6 @@ namespace ScadaServer.Application.Services
                 Name = entity.Name,
                 Code = entity.Code,
                 AreaId = entity.AreaId,
-                AreaName = entity.Area?.Name,
-                ModelId = entity.ModelId,
-                ModelName = entity.Model?.Name,
                 Type = entity.Type,
                 IpAddress = entity.IpAddress,
                 Port = entity.Port,
@@ -44,9 +61,6 @@ namespace ScadaServer.Application.Services
                 Name = entity.Name,
                 Code = entity.Code,
                 AreaId = entity.AreaId,
-                AreaName = entity.Area?.Name,
-                ModelId = entity.ModelId,
-                ModelName = entity.Model?.Name,
                 Type = entity.Type,
                 IpAddress = entity.IpAddress,
                 Port = entity.Port,
@@ -104,11 +118,28 @@ namespace ScadaServer.Application.Services
 
         public async Task DeleteAsync(int id)
         {
-            var entity = await _repository.GetByIdAsync(id);
-            if (entity != null)
+            _uow.BeginTran();
+            try
             {
-                await _repository.DeleteAsync(entity);
+                // 删除级联数据
+                await _sensorRepository.DeleteRangeAsync(s => s.DeviceId == id);
+                await _triggerRepository.DeleteRangeAsync(t => t.DeviceId == id);
+                await _realtimeDataRepository.DeleteRangeAsync(r => r.DeviceId == id);
+                await _interfaceRepository.DeleteRangeAsync(i => i.DeviceId == id);
+                
+                // 删除设备
+                var entity = await _repository.GetByIdAsync(id);
+                if (entity != null) await _repository.DeleteAsync(entity);
+
+                await _uow.CommitTranAsync();
+            }
+            catch
+            {
+                await _uow.RollbackTranAsync();
+                throw;
             }
         }
+        
+        public async Task UpdateDeviceConfigTxAsync(int deviceId, string newAddress) { }
     }
 }

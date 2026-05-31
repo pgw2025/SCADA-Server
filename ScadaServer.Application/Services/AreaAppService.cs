@@ -8,38 +8,32 @@ namespace ScadaServer.Application.Services
     public class AreaAppService : IAreaAppService
     {
         private readonly AreaRepository _repository;
-        public AreaAppService(AreaRepository repository) { _repository = repository; }
+        private readonly DeviceRepository _deviceRepository;
+        private readonly IUnitOfWork _uow;
+
+        public AreaAppService(AreaRepository repository, DeviceRepository deviceRepository, IUnitOfWork uow) 
+        { 
+            _repository = repository; 
+            _deviceRepository = deviceRepository;
+            _uow = uow;
+        }
 
         public async Task<AreaDto> GetByIdAsync(int id)
         {
             var entity = await _repository.GetByIdAsync(id);
             if (entity == null) return null;
-            return new AreaDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                Description = entity.Description
-            };
+            return new AreaDto { Id = entity.Id, Name = entity.Name, Description = entity.Description };
         }
 
         public async Task<List<AreaDto>> GetListAsync()
         {
             var list = await _repository.GetListAsync();
-            return list.Select(entity => new AreaDto
-            {
-                Id = entity.Id,
-                Name = entity.Name,
-                Description = entity.Description
-            }).ToList();
+            return list.Select(entity => new AreaDto { Id = entity.Id, Name = entity.Name, Description = entity.Description }).ToList();
         }
 
         public async Task CreateAsync(AreaDto dto)
         {
-            var entity = new Area
-            {
-                Name = dto.Name,
-                Description = dto.Description
-            };
+            var entity = new Area { Name = dto.Name, Description = dto.Description };
             await _repository.InsertAsync(entity);
         }
 
@@ -56,10 +50,22 @@ namespace ScadaServer.Application.Services
 
         public async Task DeleteAsync(int id)
         {
-            var entity = await _repository.GetByIdAsync(id);
-            if (entity != null)
+            _uow.BeginTran();
+            try
             {
-                await _repository.DeleteAsync(entity);
+                // 删除区域下所有设备
+                await _deviceRepository.DeleteRangeAsync(d => d.AreaId == id);
+                
+                // 删除区域
+                var entity = await _repository.GetByIdAsync(id);
+                if (entity != null) await _repository.DeleteAsync(entity);
+
+                await _uow.CommitTranAsync();
+            }
+            catch
+            {
+                await _uow.RollbackTranAsync();
+                throw;
             }
         }
     }

@@ -1,5 +1,6 @@
 using SqlSugar;
 using ScadaServer.Application.Interfaces;
+using System.Linq.Expressions;
 
 namespace ScadaServer.Infrastructure.Persistence
 {
@@ -35,6 +36,11 @@ namespace ScadaServer.Infrastructure.Persistence
         public virtual async Task DeleteAsync(T entity)
         {
             await _db.Deleteable(entity).ExecuteCommandAsync();
+        }
+
+        public virtual async Task DeleteRangeAsync(Expression<Func<T, bool>> predicate)
+        {
+            await _db.Deleteable<T>().Where(predicate).ExecuteCommandAsync();
         }
     }
 }

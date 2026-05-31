@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace ScadaServer.Application.Interfaces
 {
     public interface IRepository<T> where T : class, new()
@@ -7,5 +9,6 @@ namespace ScadaServer.Application.Interfaces
         Task InsertAsync(T entity);
         Task UpdateAsync(T entity);
         Task DeleteAsync(T entity);
+        Task DeleteRangeAsync(Expression<Func<T, bool>> predicate);
     }
 }
