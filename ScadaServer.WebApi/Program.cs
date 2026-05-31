@@ -3,21 +3,26 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.Services;
 using ScadaServer.Infrastructure.Persistence;
 using ScadaServer.Infrastructure.Workers;
+using ScadaServer.Application.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.Configure<SystemDbOptions>(builder.Configuration.GetSection(SystemDbOptions.SectionName));
 builder.Services.AddControllers();
+// ...
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // 1. Register SqlSugar (Scoped)
 builder.Services.AddScoped<ISqlSugarClient>(s =>
 {
+    var options = s.GetRequiredService<IOptions<SystemDbOptions>>().Value;
     return new SqlSugarScope(new ConnectionConfig()
     {
-        ConnectionString = builder.Configuration.GetConnectionString("Default"),
-        DbType = DbType.MySql, // Adjust based on requirement
+        ConnectionString = options.GetConnectionString(),
+        DbType = DbType.MySql, 
         IsAutoCloseConnection = true
     });
 });
