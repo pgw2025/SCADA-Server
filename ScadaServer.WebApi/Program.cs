@@ -24,9 +24,10 @@ builder.Services.AddControllers();
 // Add CORS policy
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowVueClient", builder =>
+    var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>() ?? Array.Empty<string>();
+    options.AddPolicy("AllowSpecificOrigins", builder =>
     {
-        builder.WithOrigins("http://localhost:3000")
+        builder.WithOrigins(allowedOrigins)
                .AllowAnyMethod()
                .AllowAnyHeader()
                .AllowCredentials();
@@ -175,7 +176,7 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseHttpsRedirection();
-app.UseCors("AllowVueClient");
+app.UseCors("AllowSpecificOrigins");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
