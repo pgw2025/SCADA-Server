@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Identity;
 
 namespace ScadaServer.Application.Services
 {
@@ -25,7 +26,9 @@ namespace ScadaServer.Application.Services
             var users = await _repository.GetListAsync(u => u.Username == loginDto.Username);
             var user = users.FirstOrDefault();
 
-            if (user == null || user.PasswordHash != loginDto.Password) // Simplified for demo
+            var passwordHasher = new PasswordHasher<SystemUser>();
+
+            if (user == null || passwordHasher.VerifyHashedPassword(user, user.PasswordHash, loginDto.Password) == PasswordVerificationResult.Failed)
             {
                 return new LoginResponseDto { Success = false, Message = "Invalid username or password" };
             }
