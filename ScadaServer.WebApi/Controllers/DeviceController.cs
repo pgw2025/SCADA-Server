@@ -25,8 +25,24 @@ namespace ScadaServer.WebApi.Controllers
         public async Task<IActionResult> GetById(int id) => Ok(await _deviceRepo.GetByIdAsync(id));
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Device device)
+        public async Task<IActionResult> Create([FromBody] CreateDeviceDto dto)
         {
+            var device = new Device
+            {
+                Name = dto.Name,
+                Code = dto.Code,
+                AreaId = dto.AreaId,
+                ModelId = dto.ModelId,
+                Type = dto.Type,
+                IpAddress = dto.IpAddress,
+                Port = dto.Port,
+                Topic = dto.Topic,
+                Status = dto.Status,
+                CpuType = dto.CpuType,
+                Rack = dto.Rack,
+                Slot = dto.Slot,
+                LastUpdated = DateTime.Now
+            };
             await _deviceRepo.InsertAsync(device);
             return Ok(device);
         }

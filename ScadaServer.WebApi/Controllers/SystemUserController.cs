@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
+using Microsoft.AspNetCore.Identity;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -24,11 +26,21 @@ namespace ScadaServer.WebApi.Controllers
         public async Task<IActionResult> GetById(int id) => Ok(await _repo.GetByIdAsync(id));
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] SystemUser entity)
+        public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
         {
-            await _repo.InsertAsync(entity);
-            return Ok(entity);
+            var passwordHasher = new PasswordHasher<SystemUser>();
+            var user = new SystemUser
+            {
+                Username = dto.Username,
+                Role = dto.Role,
+                Status = dto.Status,
+                PasswordHash = passwordHasher.HashPassword(new SystemUser(), dto.Password)
+            };
+            
+            await _repo.InsertAsync(user);
+            return Ok(new { Success = true, Message = "User created successfully" });
         }
+
 
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] SystemUser entity)
