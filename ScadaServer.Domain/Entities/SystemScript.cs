@@ -14,7 +14,7 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// JavaScript 或 C# 内容
         /// </summary>
-        [SugarColumn(ColumnDataType = "nvarchar(max)")]
+        [SugarColumn(ColumnDataType = "text")]
         public string Code { get; set; }
         /// <summary>
         /// 触发类型：Auto/Manual/Event

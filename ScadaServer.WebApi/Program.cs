@@ -93,6 +93,9 @@ builder.Services.AddHostedService<DeviceWorker>();
 
 var app = builder.Build();
 
+// 自动初始化数据库表结构
+app.InitDatabase();
+
 // Use Custom Global Exception Middleware
 app.UseMiddleware<ScadaServer.WebApi.Middlewares.ExceptionMiddleware>();
 

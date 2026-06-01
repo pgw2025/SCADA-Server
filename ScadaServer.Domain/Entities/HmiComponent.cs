@@ -28,7 +28,7 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 控件属性 JSON（颜色、阈值、模式等）
         /// </summary>
-        [SugarColumn(ColumnDataType = "nvarchar(max)")]
+        [SugarColumn(ColumnDataType = "text")]
         public string PropsJson { get; set; }
     }
 }

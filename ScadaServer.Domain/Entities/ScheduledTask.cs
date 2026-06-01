@@ -19,7 +19,7 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 任务参数 JSON
         /// </summary>
-        [SugarColumn(ColumnDataType = "nvarchar(max)")]
+        [SugarColumn(ColumnDataType = "text")]
         public string ParamsJson { get; set; }
         public bool Active { get; set; }
     }
