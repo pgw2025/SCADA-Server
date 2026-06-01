@@ -1,3 +1,5 @@
+using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 namespace ScadaServer.Application.Interfaces
 {
     public interface IMqttService
@@ -6,3 +8,4 @@ namespace ScadaServer.Application.Interfaces
         Task SubscribeAsync(string topic);
     }
 }
+

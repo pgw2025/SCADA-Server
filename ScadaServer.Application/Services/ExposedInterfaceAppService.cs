@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class ExposedInterfaceAppService : IExposedInterfaceAppService
     {
-        private readonly ExposedInterfaceRepository _repository;
-        public ExposedInterfaceAppService(ExposedInterfaceRepository repository) { _repository = repository; }
+        private readonly IExposedInterfaceRepository _repository;
+        public ExposedInterfaceAppService(IExposedInterfaceRepository repository) { _repository = repository; }
 
         public async Task<ExposedInterfaceDto> GetByIdAsync(int id)
         {
@@ -80,3 +78,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

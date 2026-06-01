@@ -1,3 +1,5 @@
+using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 namespace ScadaServer.Application.Interfaces
 {
     public interface IHistoricalRecordAppService
@@ -9,3 +11,4 @@ namespace ScadaServer.Application.Interfaces
         Task DeleteAsync(long id);
     }
 }
+

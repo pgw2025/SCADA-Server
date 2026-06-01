@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class VariableTriggerAppService : IVariableTriggerAppService
     {
-        private readonly VariableTriggerRepository _repository;
-        public VariableTriggerAppService(VariableTriggerRepository repository) { _repository = repository; }
+        private readonly IVariableTriggerRepository _repository;
+        public VariableTriggerAppService(IVariableTriggerRepository repository) { _repository = repository; }
 
         public async Task<VariableTriggerDto> GetByIdAsync(int id)
         {
@@ -96,3 +94,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

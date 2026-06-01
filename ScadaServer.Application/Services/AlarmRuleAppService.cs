@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class AlarmRuleAppService : IAlarmRuleAppService
     {
-        private readonly AlarmRuleRepository _repository;
-        public AlarmRuleAppService(AlarmRuleRepository repository) { _repository = repository; }
+        private readonly IAlarmRuleRepository _repository;
+        public AlarmRuleAppService(IAlarmRuleRepository repository) { _repository = repository; }
 
         public async Task<AlarmRuleDto> GetByIdAsync(int id)
         {
@@ -76,3 +74,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

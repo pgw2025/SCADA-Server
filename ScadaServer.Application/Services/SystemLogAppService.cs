@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class SystemLogAppService : ISystemLogAppService
     {
-        private readonly SystemLogRepository _repository;
-        public SystemLogAppService(SystemLogRepository repository) { _repository = repository; }
+        private readonly ISystemLogRepository _repository;
+        public SystemLogAppService(ISystemLogRepository repository) { _repository = repository; }
 
         public async Task<SystemLogDto> GetByIdAsync(int id)
         {
@@ -72,3 +70,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

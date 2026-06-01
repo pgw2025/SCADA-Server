@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class MqttServerAppService : IMqttServerAppService
     {
-        private readonly MqttServerRepository _repository;
-        public MqttServerAppService(MqttServerRepository repository) { _repository = repository; }
+        private readonly IMqttServerRepository _repository;
+        public MqttServerAppService(IMqttServerRepository repository) { _repository = repository; }
 
         public async Task<MqttServerDto> GetByIdAsync(int id)
         {
@@ -81,3 +79,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

@@ -26,10 +26,21 @@ namespace ScadaServer.Infrastructure.Communication
             return _plc.IsConnected;
         }
 
-        public async Task<object> ReadAsync(MetricConfig config)
+        public async Task<object> ReadAsync(ModelVariable variable)
         {
             if (_plc == null || !_plc.IsConnected) return null;
-            return await _plc.ReadAsync(config.Address);
+            return await _plc.ReadAsync(variable.Address);
+        }
+
+        public Task SubscribeAsync(ModelVariable variable, Action<object> onValueChanged)
+        {
+            // S7 does not support native subscription in this driver version
+            return Task.CompletedTask;
+        }
+
+        public Task UnsubscribeAsync(ModelVariable variable)
+        {
+            return Task.CompletedTask;
         }
 
         public async Task DisconnectAsync()

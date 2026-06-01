@@ -1,25 +1,23 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class DeviceAppService : IDeviceAppService
     {
-        private readonly DeviceRepository _repository;
-        private readonly SensorRepository _sensorRepository;
-        private readonly VariableTriggerRepository _triggerRepository;
-        private readonly RealtimeDataRepository _realtimeDataRepository;
-        private readonly ExposedInterfaceRepository _interfaceRepository;
+        private readonly IDeviceRepository _repository;
+        private readonly ISensorRepository _sensorRepository;
+        private readonly IVariableTriggerRepository _triggerRepository;
+        private readonly IRealtimeDataRepository _realtimeDataRepository;
+        private readonly IExposedInterfaceRepository _interfaceRepository;
         private readonly IUnitOfWork _uow;
 
         public DeviceAppService(
-            DeviceRepository repository, 
-            SensorRepository sensorRepository,
-            VariableTriggerRepository triggerRepository,
-            RealtimeDataRepository realtimeDataRepository,
-            ExposedInterfaceRepository interfaceRepository,
+            IDeviceRepository repository, 
+            ISensorRepository sensorRepository,
+            IVariableTriggerRepository triggerRepository,
+            IRealtimeDataRepository realtimeDataRepository,
+            IExposedInterfaceRepository interfaceRepository,
             IUnitOfWork uow) 
         { 
             _repository = repository; 
@@ -143,3 +141,4 @@ namespace ScadaServer.Application.Services
         public async Task UpdateDeviceConfigTxAsync(int deviceId, string newAddress) { }
     }
 }
+

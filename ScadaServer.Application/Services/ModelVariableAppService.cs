@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class ModelVariableAppService : IModelVariableAppService
     {
-        private readonly ModelVariableRepository _repository;
-        public ModelVariableAppService(ModelVariableRepository repository) { _repository = repository; }
+        private readonly IModelVariableRepository _repository;
+        public ModelVariableAppService(IModelVariableRepository repository) { _repository = repository; }
 
         public async Task<ModelVariableDto> GetByIdAsync(int id)
         {
@@ -104,3 +102,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

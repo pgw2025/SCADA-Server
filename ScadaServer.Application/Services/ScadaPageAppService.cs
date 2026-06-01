@@ -1,19 +1,17 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class ScadaPageAppService : IScadaPageAppService
     {
-        private readonly ScadaPageRepository _repository;
-        private readonly HmiComponentRepository _componentRepository;
+        private readonly IScadaPageRepository _repository;
+        private readonly IHmiComponentRepository _componentRepository;
         private readonly IUnitOfWork _uow;
 
         public ScadaPageAppService(
-            ScadaPageRepository repository,
-            HmiComponentRepository componentRepository,
+            IScadaPageRepository repository,
+            IHmiComponentRepository componentRepository,
             IUnitOfWork uow) 
         { 
             _repository = repository; 
@@ -73,3 +71,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

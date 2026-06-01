@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class RealtimeDataAppService : IRealtimeDataAppService
     {
-        private readonly RealtimeDataRepository _repository;
-        public RealtimeDataAppService(RealtimeDataRepository repository) { _repository = repository; }
+        private readonly IRealtimeDataRepository _repository;
+        public RealtimeDataAppService(IRealtimeDataRepository repository) { _repository = repository; }
 
         public async Task<RealtimeDataDto> GetByIdAsync(int deviceId, string variableKey)
         {
@@ -70,3 +68,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

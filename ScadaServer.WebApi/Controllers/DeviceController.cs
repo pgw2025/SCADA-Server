@@ -25,14 +25,14 @@ namespace ScadaServer.WebApi.Controllers
         public async Task<IActionResult> GetById(int id) => Ok(await _deviceRepo.GetByIdAsync(id));
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] DeviceEntity device)
+        public async Task<IActionResult> Create([FromBody] Device device)
         {
             await _deviceRepo.InsertAsync(device);
             return Ok(device);
         }
 
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] DeviceEntity device)
+        public async Task<IActionResult> Update([FromBody] Device device)
         {
             await _deviceRepo.UpdateAsync(device);
             return Ok();
@@ -63,3 +63,4 @@ namespace ScadaServer.WebApi.Controllers
         }
     }
 }
+

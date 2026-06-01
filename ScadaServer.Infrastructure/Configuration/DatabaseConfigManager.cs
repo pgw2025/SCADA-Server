@@ -1,5 +1,6 @@
 using System.Text.Json;
 using ScadaServer.Domain.Entities;
+using Microsoft.AspNetCore.Hosting;
 
 namespace ScadaServer.Infrastructure.Configuration
 {

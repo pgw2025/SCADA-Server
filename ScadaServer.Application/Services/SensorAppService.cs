@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class SensorAppService : ISensorAppService
     {
-        private readonly SensorRepository _repository;
-        public SensorAppService(SensorRepository repository) { _repository = repository; }
+        private readonly ISensorRepository _repository;
+        public SensorAppService(ISensorRepository repository) { _repository = repository; }
 
         public async Task<SensorDto> GetByIdAsync(int id)
         {
@@ -80,3 +78,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

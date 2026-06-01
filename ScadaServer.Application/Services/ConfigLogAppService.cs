@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class ConfigLogAppService : IConfigLogAppService
     {
-        private readonly ConfigLogRepository _repository;
-        public ConfigLogAppService(ConfigLogRepository repository) { _repository = repository; }
+        private readonly IConfigLogRepository _repository;
+        public ConfigLogAppService(IConfigLogRepository repository) { _repository = repository; }
 
         public async Task<ConfigLogDto> GetByIdAsync(int id)
         {
@@ -72,3 +70,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

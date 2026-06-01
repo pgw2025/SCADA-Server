@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class HistoricalRecordAppService : IHistoricalRecordAppService
     {
-        private readonly HistoricalRecordRepository _repository;
-        public HistoricalRecordAppService(HistoricalRecordRepository repository) { _repository = repository; }
+        private readonly IHistoricalRecordRepository _repository;
+        public HistoricalRecordAppService(IHistoricalRecordRepository repository) { _repository = repository; }
 
         public async Task<HistoricalRecordDto> GetByIdAsync(long id)
         {
@@ -72,3 +70,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

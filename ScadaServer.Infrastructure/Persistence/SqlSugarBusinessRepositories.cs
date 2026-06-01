@@ -25,17 +25,17 @@ namespace ScadaServer.Infrastructure.Persistence
                 .ToListAsync();
         }
 
-        public async Task<DeviceEntity> GetDeviceDetailAsync(int id)
+        public async Task<Device> GetDeviceDetailAsync(int id)
         {
-            return await _db.Queryable<DeviceEntity>()
+            return await _db.Queryable<Device>()
                 .Includes(d => d.Area)
                 .Includes(d => d.Model)
                 .InSingleAsync(id);
         }
 
-        public async Task<List<DeviceEntity>> GetDevicesAsync()
+        public async Task<List<Device>> GetDevicesAsync()
         {
-            return await _db.Queryable<DeviceEntity>()
+            return await _db.Queryable<Device>()
                 .Includes(d => d.Area)
                 .Includes(d => d.Model)
                 .ToListAsync();
@@ -120,3 +120,4 @@ namespace ScadaServer.Infrastructure.Persistence
         }
     }
 }
+

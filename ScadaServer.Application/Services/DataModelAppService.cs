@@ -1,17 +1,15 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class DataModelAppService : IDataModelAppService
     {
-        private readonly DataModelRepository _repository;
-        private readonly ModelVariableRepository _variableRepository;
+        private readonly IDataModelRepository _repository;
+        private readonly IModelVariableRepository _variableRepository;
         private readonly IUnitOfWork _uow;
 
-        public DataModelAppService(DataModelRepository repository, ModelVariableRepository variableRepository, IUnitOfWork uow) 
+        public DataModelAppService(IDataModelRepository repository, IModelVariableRepository variableRepository, IUnitOfWork uow) 
         { 
             _repository = repository; 
             _variableRepository = variableRepository;
@@ -71,3 +69,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

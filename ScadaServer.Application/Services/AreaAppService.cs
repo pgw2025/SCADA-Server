@@ -1,17 +1,15 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class AreaAppService : IAreaAppService
     {
-        private readonly AreaRepository _repository;
-        private readonly DeviceRepository _deviceRepository;
+        private readonly IAreaRepository _repository;
+        private readonly IDeviceRepository _deviceRepository;
         private readonly IUnitOfWork _uow;
 
-        public AreaAppService(AreaRepository repository, DeviceRepository deviceRepository, IUnitOfWork uow) 
+        public AreaAppService(IAreaRepository repository, IDeviceRepository deviceRepository, IUnitOfWork uow) 
         { 
             _repository = repository; 
             _deviceRepository = deviceRepository;
@@ -70,3 +68,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

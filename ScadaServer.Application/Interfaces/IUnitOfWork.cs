@@ -1,3 +1,5 @@
+using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 namespace ScadaServer.Application.Interfaces
 {
     public interface IUnitOfWork : IDisposable
@@ -7,3 +9,4 @@ namespace ScadaServer.Application.Interfaces
         Task RollbackTranAsync();
     }
 }
+

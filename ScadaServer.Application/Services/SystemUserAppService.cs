@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class SystemUserAppService : ISystemUserAppService
     {
-        private readonly SystemUserRepository _repository;
-        public SystemUserAppService(SystemUserRepository repository) { _repository = repository; }
+        private readonly ISystemUserRepository _repository;
+        public SystemUserAppService(ISystemUserRepository repository) { _repository = repository; }
 
         public async Task<SystemUserDto> GetByIdAsync(int id)
         {
@@ -69,3 +67,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

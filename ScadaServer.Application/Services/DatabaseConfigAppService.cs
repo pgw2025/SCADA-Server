@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class DatabaseConfigAppService : IDatabaseConfigAppService
     {
-        private readonly DatabaseConfigRepository _repository;
-        public DatabaseConfigAppService(DatabaseConfigRepository repository) { _repository = repository; }
+        private readonly IDatabaseConfigRepository _repository;
+        public DatabaseConfigAppService(IDatabaseConfigRepository repository) { _repository = repository; }
 
         public async Task<DatabaseConfigDto> GetByIdAsync(int id)
         {
@@ -84,3 +82,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.SignalR;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -6,7 +6,7 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Enums;
 using ScadaServer.Infrastructure.Communication;
-using ScadaServer.WebApi.Hubs;
+
 using System.Collections.Concurrent;
 
 namespace ScadaServer.Infrastructure.Workers
@@ -16,15 +16,15 @@ namespace ScadaServer.Infrastructure.Workers
         private readonly ILogger<DeviceWorker> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly DeviceRegistry _registry;
-        private readonly IHubContext<ScadaHub> _hubContext;
+        private readonly IScadaNotificationService _notificationService;
         private readonly ConcurrentDictionary<int, CancellationTokenSource> _deviceTasks = new();
 
-        public DeviceWorker(ILogger<DeviceWorker> logger, IServiceProvider serviceProvider, DeviceRegistry registry, IHubContext<ScadaHub> hubContext)
+        public DeviceWorker(ILogger<DeviceWorker> logger, IServiceProvider serviceProvider, DeviceRegistry registry, IScadaNotificationService notificationService)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _registry = registry;
-            _hubContext = hubContext;
+            _notificationService = notificationService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -38,7 +38,7 @@ namespace ScadaServer.Infrastructure.Workers
             }
         }
 
-        public async void RefreshDevice(int deviceId)
+        public async Task RefreshDevice(int deviceId)
         {
             if (_deviceTasks.TryRemove(deviceId, out var cts))
             {
@@ -64,7 +64,7 @@ namespace ScadaServer.Infrastructure.Workers
             _ = Task.Run(() => RunDeviceAcquisition(deviceId, newCts.Token), newCts.Token);
         }
 
-        public async void ReloadAll()
+        public async Task ReloadAll()
         {
             using var scope = _serviceProvider.CreateScope();
             var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
@@ -103,7 +103,7 @@ namespace ScadaServer.Infrastructure.Workers
                     // 订阅模式
                     foreach (var v in subscriptionVars) {
                         await driver.SubscribeAsync(v, (val) => {
-                             _hubContext.Clients.All.SendAsync("ReceiveVariableUpdate", v.Key, val);
+                             _notificationService.NotifyVariableUpdateAsync(v.Key, val);
                         });
                     }
 
@@ -113,7 +113,7 @@ namespace ScadaServer.Infrastructure.Workers
                         foreach (var v in pollingVars)
                         {
                             var val = await driver.ReadAsync(v);
-                            await _hubContext.Clients.All.SendAsync("ReceiveVariableUpdate", v.Key, val);
+                            await _notificationService.NotifyVariableUpdateAsync(v.Key, val);
                         }
                         await Task.Delay(1000, stoppingToken);
                     }
@@ -127,3 +127,4 @@ namespace ScadaServer.Infrastructure.Workers
         }
     }
 }
+

@@ -2,7 +2,7 @@ namespace ScadaServer.Infrastructure.Communication
 {
     public interface IDeviceRuntimeManager
     {
-        void RefreshDevice(int deviceId);
-        void ReloadAll();
+        Task RefreshDevice(int deviceId);
+        Task ReloadAll();
     }
 }

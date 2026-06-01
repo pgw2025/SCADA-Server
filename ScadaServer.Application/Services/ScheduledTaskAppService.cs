@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class ScheduledTaskAppService : IScheduledTaskAppService
     {
-        private readonly ScheduledTaskRepository _repository;
-        public ScheduledTaskAppService(ScheduledTaskRepository repository) { _repository = repository; }
+        private readonly IScheduledTaskRepository _repository;
+        public ScheduledTaskAppService(IScheduledTaskRepository repository) { _repository = repository; }
 
         public async Task<ScheduledTaskDto> GetByIdAsync(int id)
         {
@@ -76,3 +74,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

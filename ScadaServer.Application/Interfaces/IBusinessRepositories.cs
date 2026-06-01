@@ -1,3 +1,4 @@
+using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 
 namespace ScadaServer.Application.Interfaces
@@ -6,8 +7,8 @@ namespace ScadaServer.Application.Interfaces
     {
         Task<List<Area>> GetAreasAsync();
         Task<List<DataModel>> GetModelsWithVariablesAsync();
-        Task<DeviceEntity> GetDeviceDetailAsync(int id);
-        Task<List<DeviceEntity>> GetDevicesAsync();
+        Task<Device> GetDeviceDetailAsync(int id);
+        Task<List<Device>> GetDevicesAsync();
     }
 
     public interface IHmiRepository
@@ -29,3 +30,4 @@ namespace ScadaServer.Application.Interfaces
         Task<RealtimeData> GetRealtimeAsync(int deviceId, string key);
     }
 }
+

@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class DataConversionAppService : IDataConversionAppService
     {
-        private readonly DataConversionRepository _repository;
-        public DataConversionAppService(DataConversionRepository repository) { _repository = repository; }
+        private readonly IDataConversionRepository _repository;
+        public DataConversionAppService(IDataConversionRepository repository) { _repository = repository; }
 
         public async Task<DataConversionDto> GetByIdAsync(int id)
         {
@@ -80,3 +78,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

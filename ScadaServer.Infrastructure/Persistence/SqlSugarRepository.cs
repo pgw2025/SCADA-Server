@@ -23,6 +23,11 @@ namespace ScadaServer.Infrastructure.Persistence
             return await _db.Queryable<T>().ToListAsync();
         }
 
+        public virtual async Task<List<T>> GetListAsync(Expression<Func<T, bool>> predicate)
+        {
+            return await _db.Queryable<T>().Where(predicate).ToListAsync();
+        }
+
         public virtual async Task InsertAsync(T entity)
         {
             await _db.Insertable(entity).ExecuteCommandAsync();

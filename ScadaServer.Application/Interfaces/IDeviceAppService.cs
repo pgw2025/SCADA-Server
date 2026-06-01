@@ -1,3 +1,5 @@
+using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 namespace ScadaServer.Application.Interfaces
 {
     public interface IDeviceAppService
@@ -7,5 +9,7 @@ namespace ScadaServer.Application.Interfaces
         Task CreateAsync(DeviceDto dto);
         Task UpdateAsync(DeviceDto dto);
         Task DeleteAsync(int id);
+        Task UpdateDeviceConfigTxAsync(int deviceId, string newAddress);
     }
 }
+

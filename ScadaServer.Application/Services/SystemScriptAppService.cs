@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class SystemScriptAppService : ISystemScriptAppService
     {
-        private readonly SystemScriptRepository _repository;
-        public SystemScriptAppService(SystemScriptRepository repository) { _repository = repository; }
+        private readonly ISystemScriptRepository _repository;
+        public SystemScriptAppService(ISystemScriptRepository repository) { _repository = repository; }
 
         public async Task<SystemScriptDto> GetByIdAsync(int id)
         {
@@ -76,3 +74,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+

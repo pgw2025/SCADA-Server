@@ -1,14 +1,12 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
-using ScadaServer.Infrastructure.Repositories;
-
 namespace ScadaServer.Application.Services
 {
     public class HmiComponentAppService : IHmiComponentAppService
     {
-        private readonly HmiComponentRepository _repository;
-        public HmiComponentAppService(HmiComponentRepository repository) { _repository = repository; }
+        private readonly IHmiComponentRepository _repository;
+        public HmiComponentAppService(IHmiComponentRepository repository) { _repository = repository; }
 
         public async Task<HmiComponentDto> GetByIdAsync(int id)
         {
@@ -96,3 +94,4 @@ namespace ScadaServer.Application.Services
         }
     }
 }
+
