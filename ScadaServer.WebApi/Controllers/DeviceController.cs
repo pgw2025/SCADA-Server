@@ -47,9 +47,26 @@ namespace ScadaServer.WebApi.Controllers
             return Ok(device);
         }
 
-        [HttpPut]
-        public async Task<IActionResult> Update([FromBody] Device device)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] CreateDeviceDto dto)
         {
+            var device = await _deviceRepo.GetByIdAsync(id);
+            if (device == null) return NotFound();
+
+            device.Name = dto.Name;
+            device.Code = dto.Code;
+            device.AreaId = dto.AreaId;
+            device.ModelId = dto.ModelId;
+            device.Type = dto.Type;
+            device.IpAddress = dto.IpAddress;
+            device.Port = dto.Port;
+            device.Topic = dto.Topic;
+            device.Status = dto.Status;
+            device.CpuType = dto.CpuType;
+            device.Rack = dto.Rack;
+            device.Slot = dto.Slot;
+            device.LastUpdated = DateTime.Now;
+
             await _deviceRepo.UpdateAsync(device);
             return Ok();
         }
