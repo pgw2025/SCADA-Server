@@ -2,6 +2,7 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Exceptions;
+using System.Text.RegularExpressions;
 
 namespace ScadaServer.Application.Services
 {
@@ -37,13 +38,16 @@ namespace ScadaServer.Application.Services
             dto.Address = dto.Address?.Trim();
 
             // 1. 存在性检查：模型必须存在
-            var modelExists = await _modelRepository.AnyAsync(m => m.Id == dto.ModelId);
-            if (!modelExists)
+            var model = await _modelRepository.GetByIdAsync(dto.ModelId);
+            if (model == null)
             {
                 throw new BusinessException($"ID 为 {dto.ModelId} 的数据模型不存在");
             }
 
-            // 2. 业务校验：在同一个模型下 Key 必须唯一
+            // 2. 深度业务校验
+            ValidateVariableLogic(dto, model.Type);
+
+            // 3. 业务校验：在同一个模型下 Key 必须唯一
             var keyExists = await _repository.AnyAsync(v => v.ModelId == dto.ModelId && v.Key == dto.Key);
             if (keyExists)
             {
@@ -53,7 +57,6 @@ namespace ScadaServer.Application.Services
             var entity = MapToEntity(dto);
             await _repository.InsertAsync(entity);
             
-            // 注意：仓储应支持 ID 回填，否则这里返回的 DTO ID 会是 0
             dto.Id = entity.Id; 
             return dto;
         }
@@ -71,7 +74,17 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"ID 为 {dto.Id} 的变量定义不存在");
             }
 
-            // 1. 业务校验：Key 查重（排除自身）
+            // 1. 获取模型以获知协议类型
+            var model = await _modelRepository.GetByIdAsync(dto.ModelId);
+            if (model == null)
+            {
+                throw new BusinessException($"ID 为 {dto.ModelId} 的数据模型不存在");
+            }
+
+            // 2. 深度业务校验
+            ValidateVariableLogic(dto, model.Type);
+
+            // 3. 业务校验：Key 查重（排除自身）
             var keyExists = await _repository.AnyAsync(v => v.ModelId == dto.ModelId && v.Key == dto.Key && v.Id != dto.Id);
             if (keyExists)
             {
@@ -90,6 +103,45 @@ namespace ScadaServer.Application.Services
             if (entity != null)
             {
                 await _repository.DeleteAsync(entity);
+            }
+        }
+
+        private void ValidateVariableLogic(ModelVariableDto dto, string protocolType)
+        {
+            // A. 类型匹配校验
+            if (dto.Type == "Digital" && dto.DataType != "BOOL" && dto.DataType != "BIT")
+            {
+                throw new BusinessException("数字量性质的变量，数据类型必须为 BOOL 或 BIT");
+            }
+
+            // B. 地址格式校验
+            if (string.IsNullOrEmpty(dto.Address))
+            {
+                throw new BusinessException("变量地址不能为空");
+            }
+
+            if (protocolType == "S7")
+            {
+                // 西门子 S7 地址正则校验：支持 DB块(DB1.DBD0) 或 寄存器区(I0.0, Q1.2, M10.5)
+                var s7Regex = @"^(DB\d+\.DB[XWDB]\d+(\.\d+)?)|([IQM]\d+\.\d+)$";
+                if (!Regex.IsMatch(dto.Address, s7Regex, RegexOptions.IgnoreCase))
+                {
+                    throw new BusinessException($"西门子 S7 地址 '{dto.Address}' 格式不正确。示例：DB1.DBD0, I0.0, M10.5");
+                }
+            }
+            else if (protocolType == "OPCUA")
+            {
+                // OPC UA 节点 ID 通常包含 ns=
+                if (!dto.Address.Contains("ns=") && !dto.Address.Contains("i="))
+                {
+                    throw new BusinessException($"OPC UA 节点 ID '{dto.Address}' 格式不正确。通常应包含 'ns=' 或 'i='。");
+                }
+            }
+
+            // C. 历史存储检查
+            if (dto.IsStored && string.IsNullOrEmpty(dto.StoreMode))
+            {
+                throw new BusinessException("开启历史存储时，必须指定存储模式（Change:变化存储 / Cycle:周期存储）");
             }
         }
 
