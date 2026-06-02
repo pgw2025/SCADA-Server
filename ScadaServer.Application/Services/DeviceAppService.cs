@@ -2,6 +2,7 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Exceptions;
+using ScadaServer.Domain.Enums;
 namespace ScadaServer.Application.Services
 {
     public class DeviceAppService : IDeviceAppService
@@ -136,14 +137,27 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"ID 为 {id} 的设备不存在");
             }
 
-            // 1. 业务校验：Code 不能与其他设备重复
+            // 1. 运行状态保护：在线设备禁止修改关键通信参数
+            if (entity.Status == DeviceStatus.Online)
+            {
+                bool criticalChanged = entity.IpAddress != dto.IpAddress || 
+                                     entity.Port != dto.Port || 
+                                     entity.Type != dto.Type;
+                
+                if (criticalChanged)
+                {
+                    throw new BusinessException($"设备 '{entity.Name}' 处于在线运行状态，禁止修改 IP、端口或协议类型。请先停止设备。");
+                }
+            }
+
+            // 2. 业务校验：Code 不能与其他设备重复
             var existing = await _repository.GetListAsync(d => d.Code == dto.Code && d.Id != id);
             if (existing.Any())
             {
                 throw new BusinessException($"设备编码 '{dto.Code}' 已存在");
             }
 
-            // 2. 存在性检查：校验区域和模型是否存在
+            // 3. 存在性检查：校验区域和模型是否存在
             var area = await _areaRepository.GetByIdAsync(dto.AreaId);
             if (area == null)
             {
@@ -176,6 +190,22 @@ namespace ScadaServer.Application.Services
 
         public async Task DeleteAsync(int id)
         {
+            var entity = await _repository.GetByIdAsync(id);
+            if (entity == null) return;
+
+            // 1. 安全校验：运行中的设备禁止删除
+            if (entity.Status == DeviceStatus.Online)
+            {
+                throw new BusinessException($"无法删除设备 '{entity.Name}'，因为它当前处于在线状态。请先停止采集任务。");
+            }
+
+            // 2. 依赖检查：检查是否被对外接口引用
+            var interfaces = await _interfaceRepository.GetListAsync(i => i.DeviceId == id);
+            if (interfaces.Any())
+            {
+                throw new BusinessException($"无法删除设备 '{entity.Name}'，因为它已被配置到 {interfaces.Count} 个对外数据接口中。请先解除绑定。");
+            }
+
             _uow.BeginTran();
             try
             {
@@ -186,8 +216,7 @@ namespace ScadaServer.Application.Services
                 await _interfaceRepository.DeleteRangeAsync(i => i.DeviceId == id);
                 
                 // 删除设备
-                var entity = await _repository.GetByIdAsync(id);
-                if (entity != null) await _repository.DeleteAsync(entity);
+                await _repository.DeleteAsync(entity);
 
                 await _uow.CommitTranAsync();
             }
