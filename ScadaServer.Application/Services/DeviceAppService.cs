@@ -135,12 +135,12 @@ namespace ScadaServer.Application.Services
             return await GetByIdAsync(entity.Id);
         }
 
-        public async Task<DeviceDto> UpdateAsync(int id, CreateDeviceDto dto)
+        public async Task<DeviceDto> UpdateAsync(DeviceDto dto)
         {
-            var entity = await _repository.GetByIdAsync(id);
+            var entity = await _repository.GetByIdAsync(dto.Id);
             if (entity == null)
             {
-                throw new BusinessException($"ID 为 {id} 的设备不存在");
+                throw new BusinessException($"ID 为 {dto.Id} 的设备不存在");
             }
 
             // 1. 运行状态保护：在线设备禁止修改关键通信参数
@@ -157,7 +157,7 @@ namespace ScadaServer.Application.Services
             }
 
             // 2. 业务校验：Code 不能与其他设备重复
-            var existing = await _repository.GetListAsync(d => d.Code == dto.Code && d.Id != id);
+            var existing = await _repository.GetListAsync(d => d.Code == dto.Code && d.Id != dto.Id);
             if (existing.Any())
             {
                 throw new BusinessException($"设备编码 '{dto.Code}' 已存在");
@@ -197,7 +197,7 @@ namespace ScadaServer.Application.Services
             entity.LastUpdated = DateTime.Now;
             
             await _repository.UpdateAsync(entity);
-            return await GetByIdAsync(id);
+            return await GetByIdAsync(dto.Id);
         }
 
         public async Task DeleteAsync(int id)

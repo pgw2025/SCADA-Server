@@ -7,7 +7,7 @@ namespace ScadaServer.Application.Interfaces
         Task<DeviceDto> GetByIdAsync(int id);
         Task<List<DeviceDto>> GetListAsync();
         Task<DeviceDto> CreateAsync(CreateDeviceDto dto);
-        Task<DeviceDto> UpdateAsync(int id, CreateDeviceDto dto);
+        Task<DeviceDto> UpdateAsync(DeviceDto dto);
         Task DeleteAsync(int id);
         Task UpdateDeviceConfigTxAsync(int deviceId, string newAddress);
     }
