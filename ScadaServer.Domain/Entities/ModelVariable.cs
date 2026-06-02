@@ -45,6 +45,33 @@ namespace ScadaServer.Domain.Entities
         public UpdateMode UpdateMode { get; set; }
         public int PollingIntervalMs { get; set; } = 1000;
 
+        // --- 工业级增强字段 ---
+        
+        /// <summary>
+        /// 位偏移 (用于 S7/Modbus 的位寻址，如 DB1.DBX0.6 中的 6)
+        /// </summary>
+        public int? BitOffset { get; set; }
+
+        /// <summary>
+        /// 缩放斜率 (显示值 = 原始值 * ScaleSlope + ScaleOffset)
+        /// </summary>
+        public double ScaleSlope { get; set; } = 1.0;
+
+        /// <summary>
+        /// 缩放偏移
+        /// </summary>
+        public double ScaleOffset { get; set; } = 0.0;
+
+        /// <summary>
+        /// 采集死区 (模拟量波动小于此值时不更新/不存储)
+        /// </summary>
+        public double? DeadBand { get; set; }
+
+        /// <summary>
+        /// 是否只读 (防止对传感器等变量执行写入操作)
+        /// </summary>
+        public bool IsReadOnly { get; set; } = true;
+
         /// <summary>
         /// 扩展属性 JSON (用于存放非核心配置，如 UI 配置、私有协议参数等)
         /// </summary>
