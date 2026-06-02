@@ -29,7 +29,6 @@ namespace ScadaServer.Application.DTOs
         [Range(1, 65535, ErrorMessage = "端口号必须在1-65535之间")]
         public int? Port { get; set; }
 
-        public string Topic { get; set; } = string.Empty;
         public DeviceStatus Status { get; set; }
         public string CpuType { get; set; } = string.Empty;
         [Required(ErrorMessage = "Rack 是必填项")]

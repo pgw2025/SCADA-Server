@@ -50,7 +50,6 @@ namespace ScadaServer.Application.Services
                 Type = entity.Type,
                 IpAddress = entity.IpAddress,
                 Port = entity.Port,
-                Topic = entity.Topic,
                 Status = entity.Status,
                 CpuType = entity.CpuType,
                 Rack = entity.Rack,
@@ -72,7 +71,6 @@ namespace ScadaServer.Application.Services
                 Type = entity.Type,
                 IpAddress = entity.IpAddress,
                 Port = entity.Port,
-                Topic = entity.Topic,
                 Status = entity.Status,
                 CpuType = entity.CpuType,
                 Rack = entity.Rack,
@@ -124,7 +122,6 @@ namespace ScadaServer.Application.Services
                 Type = dto.Type,
                 IpAddress = dto.IpAddress,
                 Port = dto.Port,
-                Topic = dto.Topic,
                 Status = dto.Status,
                 CpuType = dto.CpuType,
                 Rack = dto.Rack,
@@ -189,7 +186,6 @@ namespace ScadaServer.Application.Services
             entity.Type = dto.Type;
             entity.IpAddress = dto.IpAddress;
             entity.Port = dto.Port;
-            entity.Topic = dto.Topic;
             entity.Status = dto.Status;
             entity.CpuType = dto.CpuType;
             entity.Rack = dto.Rack;

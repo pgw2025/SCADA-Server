@@ -38,10 +38,6 @@ namespace ScadaServer.Domain.Entities
         public string Type { get; set; }
         public string IpAddress { get; set; }
         public int? Port { get; set; }
-        /// <summary>
-        /// MQTT主路径
-        /// </summary>
-        public string Topic { get; set; }
         public DeviceStatus Status { get; set; }
         
         // S7 协议特定
