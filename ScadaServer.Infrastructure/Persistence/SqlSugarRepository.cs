@@ -47,5 +47,10 @@ namespace ScadaServer.Infrastructure.Persistence
         {
             await _db.Deleteable<T>().Where(predicate).ExecuteCommandAsync();
         }
+
+        public virtual async Task<bool> AnyAsync(Expression<Func<T, bool>> predicate)
+        {
+            return await _db.Queryable<T>().AnyAsync(predicate);
+        }
     }
 }

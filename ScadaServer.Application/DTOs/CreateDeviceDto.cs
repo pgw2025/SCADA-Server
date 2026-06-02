@@ -20,6 +20,7 @@ namespace ScadaServer.Application.DTOs
         public int ModelId { get; set; }
 
         [Required(ErrorMessage = "通信协议类型不能为空")]
+        [RegularExpression("^(S7|OPCUA|MQTT|Virtual)$", ErrorMessage = "不支持的协议类型。可选值：S7, OPCUA, MQTT, Virtual")]
         public string Type { get; set; } = string.Empty;
 
         [RegularExpression(@"^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$", ErrorMessage = "IP地址格式不正确")]

@@ -13,6 +13,7 @@ namespace ScadaServer.Application.Interfaces
         Task UpdateAsync(T entity);
         Task DeleteAsync(T entity);
         Task DeleteRangeAsync(Expression<Func<T, bool>> predicate);
+        Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
     }
 }
 

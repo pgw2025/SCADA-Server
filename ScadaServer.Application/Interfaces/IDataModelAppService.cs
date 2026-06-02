@@ -6,8 +6,8 @@ namespace ScadaServer.Application.Interfaces
     {
         Task<DataModelDto> GetByIdAsync(int id);
         Task<List<DataModelDto>> GetListAsync();
-        Task CreateAsync(DataModelDto dto);
-        Task UpdateAsync(DataModelDto dto);
+        Task<DataModelDto> CreateAsync(CreateDataModelDto dto);
+        Task<DataModelDto> UpdateAsync(int id, CreateDataModelDto dto);
         Task DeleteAsync(int id);
     }
 }
