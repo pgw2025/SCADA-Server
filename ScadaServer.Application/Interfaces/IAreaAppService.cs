@@ -6,8 +6,8 @@ namespace ScadaServer.Application.Interfaces
     {
         Task<AreaDto> GetByIdAsync(int id);
         Task<List<AreaDto>> GetListAsync();
-        Task CreateAsync(AreaDto dto);
-        Task UpdateAsync(AreaDto dto);
+        Task<AreaDto> CreateAsync(AreaDto dto);
+        Task<AreaDto> UpdateAsync(AreaDto dto);
         Task DeleteAsync(int id);
     }
 }

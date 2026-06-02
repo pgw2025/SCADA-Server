@@ -29,42 +29,69 @@ namespace ScadaServer.Application.Services
             return list.Select(entity => new AreaDto { Id = entity.Id, Name = entity.Name, Description = entity.Description }).ToList();
         }
 
-        public async Task CreateAsync(AreaDto dto)
+        public async Task<AreaDto> CreateAsync(AreaDto dto)
         {
+            // 业务校验：名称不能重复
+            var existing = await _repository.GetListAsync(a => a.Name == dto.Name);
+            if (existing.Any())
+            {
+                throw new Exception($"区域名称 '{dto.Name}' 已存在");
+            }
+
             var entity = new Area { Name = dto.Name, Description = dto.Description };
             await _repository.InsertAsync(entity);
+
+            // 返回包含生成 ID 的 DTO
+            dto.Id = entity.Id;
+            return dto;
         }
 
-        public async Task UpdateAsync(AreaDto dto)
+        public async Task<AreaDto> UpdateAsync(AreaDto dto)
         {
+            // 1. 检查记录是否存在
             var entity = await _repository.GetByIdAsync(dto.Id);
-            if (entity != null)
+            if (entity == null)
             {
-                entity.Name = dto.Name;
-                entity.Description = dto.Description;
-                await _repository.UpdateAsync(entity);
+                throw new Exception($"ID 为 {dto.Id} 的区域不存在");
             }
+
+            // 2. 业务校验：名称不能与其他区域重复
+            var existing = await _repository.GetListAsync(a => a.Name == dto.Name && a.Id != dto.Id);
+            if (existing.Any())
+            {
+                throw new Exception($"区域名称 '{dto.Name}' 已存在");
+            }
+
+            // 3. 更新字段
+            entity.Name = dto.Name;
+            entity.Description = dto.Description;
+            await _repository.UpdateAsync(entity);
+
+            // 4. 返回最新的 DTO
+            return new AreaDto 
+            { 
+                Id = entity.Id, 
+                Name = entity.Name, 
+                Description = entity.Description 
+            };
         }
 
         public async Task DeleteAsync(int id)
         {
-            _uow.BeginTran();
-            try
-            {
-                // 删除区域下所有设备
-                await _deviceRepository.DeleteRangeAsync(d => d.AreaId == id);
-                
-                // 删除区域
-                var entity = await _repository.GetByIdAsync(id);
-                if (entity != null) await _repository.DeleteAsync(entity);
+            // 1. 检查区域是否存在
+            var entity = await _repository.GetByIdAsync(id);
+            if (entity == null) return;
 
-                await _uow.CommitTranAsync();
-            }
-            catch
+            // 2. 安全检查：如果该区域下还有设备，禁止删除
+            // 获取该区域下的设备数量
+            var devices = await _deviceRepository.GetListAsync(d => d.AreaId == id);
+            if (devices.Any())
             {
-                await _uow.RollbackTranAsync();
-                throw;
+                throw new Exception($"无法删除区域 '{entity.Name}'，因为该区域下尚有 {devices.Count} 台设备。请先移除或删除相关设备。");
             }
+
+            // 3. 执行删除
+            await _repository.DeleteAsync(entity);
         }
     }
 }

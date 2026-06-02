@@ -7,12 +7,18 @@ namespace ScadaServer.Application.Services
     {
         private readonly IDataModelRepository _repository;
         private readonly IModelVariableRepository _variableRepository;
+        private readonly IVariableTriggerRepository _triggerRepository;
         private readonly IUnitOfWork _uow;
 
-        public DataModelAppService(IDataModelRepository repository, IModelVariableRepository variableRepository, IUnitOfWork uow) 
+        public DataModelAppService(
+            IDataModelRepository repository, 
+            IModelVariableRepository variableRepository, 
+            IVariableTriggerRepository triggerRepository,
+            IUnitOfWork uow) 
         { 
             _repository = repository; 
             _variableRepository = variableRepository;
+            _triggerRepository = triggerRepository;
             _uow = uow;
         }
 
@@ -52,10 +58,10 @@ namespace ScadaServer.Application.Services
             _uow.BeginTran();
             try
             {
-                // 删除模型下所有变量
+                // 清理属于该模型的变量定义
                 await _variableRepository.DeleteRangeAsync(v => v.ModelId == id);
                 
-                // 删除模型
+                // 最后删除模型本身
                 var entity = await _repository.GetByIdAsync(id);
                 if (entity != null) await _repository.DeleteAsync(entity);
 
