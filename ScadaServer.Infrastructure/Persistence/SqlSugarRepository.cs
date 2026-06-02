@@ -30,7 +30,11 @@ namespace ScadaServer.Infrastructure.Persistence
 
         public virtual async Task InsertAsync(T entity)
         {
-            await _db.Insertable(entity).ExecuteCommandAsync();
+            // 使用 ExecuteReturnEntityAsync 会自动将数据库生成的自增 ID 回填到 entity 对象中
+            var result = await _db.Insertable(entity).ExecuteReturnEntityAsync();
+            
+            // 为了确保调用方拿到的就是同一个引用且 ID 已更新，我们也可以手动处理（如果 SqlSugar 版本有差异）
+            // 但在标准 SqlSugar 中，ExecuteReturnEntityAsync 已经足够。
         }
 
         public virtual async Task UpdateAsync(T entity)

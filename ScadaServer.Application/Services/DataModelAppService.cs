@@ -39,14 +39,25 @@ namespace ScadaServer.Application.Services
 
         public async Task<DataModelDto> CreateAsync(CreateDataModelDto dto)
         {
-            // 1. 业务校验：名称唯一性
+            // 0. 规范化：修剪空格
+            dto.Name = dto.Name?.Trim();
+            dto.Type = dto.Type?.Trim();
+
+            // 1. 兜底校验：防止绕过 DTO 正则
+            var allowedTypes = new[] { "S7", "OPCUA", "MQTT", "Virtual" };
+            if (!allowedTypes.Contains(dto.Type))
+            {
+                throw new BusinessException($"不支持的模型类型 '{dto.Type}'。合法值为：S7, OPCUA, MQTT, Virtual");
+            }
+
+            // 2. 业务校验：名称唯一性
             var existing = await _repository.GetListAsync(m => m.Name == dto.Name);
             if (existing.Any())
             {
                 throw new BusinessException($"数据模型名称 '{dto.Name}' 已存在");
             }
 
-            var entity = new DataModel { Name = dto.Name, Description = dto.Description, Type = dto.Type };
+            var entity = new DataModel { Name = dto.Name, Description = dto.Description?.Trim(), Type = dto.Type };
             await _repository.InsertAsync(entity);
             
             return new DataModelDto { Id = entity.Id, Name = entity.Name, Description = entity.Description, Type = entity.Type };
@@ -54,13 +65,24 @@ namespace ScadaServer.Application.Services
 
         public async Task<DataModelDto> UpdateAsync(int id, CreateDataModelDto dto)
         {
+            // 0. 规范化：修剪空格
+            dto.Name = dto.Name?.Trim();
+            dto.Type = dto.Type?.Trim();
+
+            // 1. 兜底校验
+            var allowedTypes = new[] { "S7", "OPCUA", "MQTT", "Virtual" };
+            if (!allowedTypes.Contains(dto.Type))
+            {
+                throw new BusinessException($"不支持的模型类型 '{dto.Type}'。合法值为：S7, OPCUA, MQTT, Virtual");
+            }
+
             var entity = await _repository.GetByIdAsync(id);
             if (entity == null)
             {
                 throw new BusinessException($"ID 为 {id} 的数据模型不存在");
             }
 
-            // 1. 业务校验：名称不能与其他模型重复
+            // 2. 业务校验：名称不能与其他模型重复
             var existing = await _repository.GetListAsync(m => m.Name == dto.Name && m.Id != id);
             if (existing.Any())
             {
@@ -68,7 +90,7 @@ namespace ScadaServer.Application.Services
             }
 
             entity.Name = dto.Name;
-            entity.Description = dto.Description;
+            entity.Description = dto.Description?.Trim();
             entity.Type = dto.Type;
             await _repository.UpdateAsync(entity);
 
