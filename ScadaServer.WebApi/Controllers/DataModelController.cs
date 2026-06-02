@@ -29,10 +29,10 @@ namespace ScadaServer.WebApi.Controllers
             return Ok(result);
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] CreateDataModelDto dto)
+        [HttpPut]
+        public async Task<IActionResult> Update([FromBody] DataModelDto dto)
         {
-            var result = await _appService.UpdateAsync(id, dto);
+            var result = await _appService.UpdateAsync(dto);
             return Ok(result);
         }
 

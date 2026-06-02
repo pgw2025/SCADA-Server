@@ -63,7 +63,7 @@ namespace ScadaServer.Application.Services
             return new DataModelDto { Id = entity.Id, Name = entity.Name, Description = entity.Description, Type = entity.Type };
         }
 
-        public async Task<DataModelDto> UpdateAsync(int id, CreateDataModelDto dto)
+        public async Task<DataModelDto> UpdateAsync(DataModelDto dto)
         {
             // 0. 规范化：修剪空格
             dto.Name = dto.Name?.Trim();
@@ -76,14 +76,25 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"不支持的模型类型 '{dto.Type}'。合法值为：S7, OPCUA, MQTT, Virtual");
             }
 
-            var entity = await _repository.GetByIdAsync(id);
+            var entity = await _repository.GetByIdAsync(dto.Id);
             if (entity == null)
             {
-                throw new BusinessException($"ID 为 {id} 的数据模型不存在");
+                throw new BusinessException($"ID 为 {dto.Id} 的数据模型不存在");
             }
 
-            // 2. 业务校验：名称不能与其他模型重复
-            var existing = await _repository.GetListAsync(m => m.Name == dto.Name && m.Id != id);
+            // 2. 协议类型锁定保护
+            if (entity.Type != dto.Type)
+            {
+                // 如果模型类型发生变化，检查是否有设备正在使用此模型
+                var hasDevices = await _deviceRepository.AnyAsync(d => d.ModelId == dto.Id);
+                if (hasDevices)
+                {
+                    throw new BusinessException($"无法修改模型类型。已有设备关联此模型，请先删除相关设备或解除绑定。");
+                }
+            }
+
+            // 3. 业务校验：名称不能与其他模型重复
+            var existing = await _repository.GetListAsync(m => m.Name == dto.Name && m.Id != dto.Id);
             if (existing.Any())
             {
                 throw new BusinessException($"数据模型名称 '{dto.Name}' 已存在");
