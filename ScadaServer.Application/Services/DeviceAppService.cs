@@ -44,7 +44,7 @@ namespace ScadaServer.Application.Services
             {
                 Id = entity.Id,
                 Name = entity.Name,
-                Code = entity.Code,
+                Key = entity.Key,
                 AreaId = entity.AreaId,
                 ModelId = entity.ModelId,
                 Type = entity.Type,
@@ -65,7 +65,7 @@ namespace ScadaServer.Application.Services
             {
                 Id = entity.Id,
                 Name = entity.Name,
-                Code = entity.Code,
+                Key = entity.Key,
                 AreaId = entity.AreaId,
                 ModelId = entity.ModelId,
                 Type = entity.Type,
@@ -81,11 +81,11 @@ namespace ScadaServer.Application.Services
 
         public async Task<DeviceDto> CreateAsync(CreateDeviceDto dto)
         {
-            // 1. 业务校验：Code 唯一性
-            var existing = await _repository.GetListAsync(d => d.Code == dto.Code);
+            // 1. 业务校验：Key 唯一性
+            var existing = await _repository.GetListAsync(d => d.Key == dto.Key);
             if (existing.Any())
             {
-                throw new BusinessException($"设备编码 '{dto.Code}' 已存在");
+                throw new BusinessException($"设备标识 '{dto.Key}' 已存在");
             }
 
             // 2. 存在性检查：校验区域和模型是否存在
@@ -116,7 +116,7 @@ namespace ScadaServer.Application.Services
             var entity = new Device
             {
                 Name = dto.Name,
-                Code = dto.Code,
+                Key = dto.Key,
                 AreaId = dto.AreaId,
                 ModelId = dto.ModelId,
                 Type = dto.Type,
@@ -153,11 +153,11 @@ namespace ScadaServer.Application.Services
                 }
             }
 
-            // 2. 业务校验：Code 不能与其他设备重复
-            var existing = await _repository.GetListAsync(d => d.Code == dto.Code && d.Id != dto.Id);
+            // 2. 业务校验：Key 不能与其他设备重复
+            var existing = await _repository.GetListAsync(d => d.Key == dto.Key && d.Id != dto.Id);
             if (existing.Any())
             {
-                throw new BusinessException($"设备编码 '{dto.Code}' 已存在");
+                throw new BusinessException($"设备标识 '{dto.Key}' 已存在");
             }
 
             // 3. 存在性检查：校验区域和模型是否存在
@@ -180,7 +180,7 @@ namespace ScadaServer.Application.Services
             }
 
             entity.Name = dto.Name;
-            entity.Code = dto.Code;
+            entity.Key = dto.Key;
             entity.AreaId = dto.AreaId;
             entity.ModelId = dto.ModelId;
             entity.Type = dto.Type;
@@ -238,4 +238,3 @@ namespace ScadaServer.Application.Services
         public async Task UpdateDeviceConfigTxAsync(int deviceId, string newAddress) { }
     }
 }
-

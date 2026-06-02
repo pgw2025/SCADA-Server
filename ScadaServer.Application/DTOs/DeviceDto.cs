@@ -11,9 +11,9 @@ namespace ScadaServer.Application.DTOs
         [StringLength(50, ErrorMessage = "设备名称不能超过50个字符")]
         public string Name { get; set; }
 
-        [Required(ErrorMessage = "设备编码不能为空")]
-        [StringLength(50, ErrorMessage = "设备编码不能超过50个字符")]
-        public string Code { get; set; }
+        [Required(ErrorMessage = "设备标识不能为空")]
+        [StringLength(50, ErrorMessage = "设备标识不能超过50个字符")]
+        public string Key { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "请选择所属区域")]
         public int AreaId { get; set; }

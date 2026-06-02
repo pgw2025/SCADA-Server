@@ -13,10 +13,10 @@ namespace ScadaServer.Domain.Entities
         public int Id { get; set; }
         public string Name { get; set; }
         /// <summary>
-        /// 唯一编码符
+        /// 唯一键
         /// </summary>
-        [SugarColumn(ColumnDescription = "唯一编码符")]
-        public string Code { get; set; }
+        [SugarColumn(ColumnDescription = "唯一键")]
+        public string Key { get; set; }
         
         public int AreaId { get; set; }
         /// <summary>
