@@ -6,6 +6,7 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Enums;
 using ScadaServer.Infrastructure.Communication;
+using ScadaServer.Infrastructure.Services;
 
 using System.Collections.Concurrent;
 
@@ -114,6 +115,7 @@ namespace ScadaServer.Infrastructure.Workers
                         {
                             var val = await driver.ReadAsync(v);
                             await _notificationService.NotifyVariableUpdateAsync(v.Key, val);
+                            SystemMonitorService.IncrementPollPackets(); // 增加计数
                         }
                         await Task.Delay(1000, stoppingToken);
                     }

@@ -5,6 +5,7 @@ using ScadaServer.Infrastructure.Persistence;
 using ScadaServer.Infrastructure.Repositories;
 using ScadaServer.Infrastructure.Communication;
 using ScadaServer.Infrastructure.Workers;
+using ScadaServer.Infrastructure.Services;
 using ScadaServer.Application.Options;
 using ScadaServer.WebApi.Services;
 using ScadaServer.WebApi.Hubs;
@@ -129,6 +130,8 @@ builder.Services.AddScoped<IVariableTriggerRepository, VariableTriggerRepository
 
 builder.Services.AddSingleton<DeviceRegistry>();
 builder.Services.AddSingleton<ScadaServer.Infrastructure.Configuration.DatabaseConfigManager>();
+builder.Services.AddSingleton<SystemMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SystemMonitorService>());
 
 // 4. Register Application Services
 builder.Services.AddScoped<IAlarmRuleAppService, AlarmRuleAppService>();

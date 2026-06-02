@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -24,18 +25,32 @@ namespace ScadaServer.WebApi.Controllers
         public async Task<IActionResult> GetById(int id) => Ok(await _repo.GetByIdAsync(id));
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] DataModel entity)
+        public async Task<IActionResult> Create([FromBody] CreateDataModelDto dto)
         {
+            var entity = new DataModel
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                Type = dto.Type
+            };
             await _repo.InsertAsync(entity);
             return Ok(entity);
         }
 
-        [HttpPut]
-        public async Task<IActionResult> Update([FromBody] DataModel entity)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromBody] CreateDataModelDto dto)
         {
+            var entity = await _repo.GetByIdAsync(id);
+            if (entity == null) return NotFound();
+
+            entity.Name = dto.Name;
+            entity.Description = dto.Description;
+            entity.Type = dto.Type;
+
             await _repo.UpdateAsync(entity);
             return Ok();
         }
+
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
