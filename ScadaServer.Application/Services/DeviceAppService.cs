@@ -103,7 +103,13 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"ID 为 {dto.ModelId} 的变量模型不存在");
             }
 
-            // 3. 协议特定校验
+            // 3. 协议一致性检查：设备协议类型必须与模型定义的协议类型一致
+            if (model.Type != dto.Type)
+            {
+                throw new BusinessException($"协议类型冲突。所选模型 '{model.Name}' 的类型为 {model.Type}，而当前设备配置的类型为 {dto.Type}。");
+            }
+
+            // 4. 协议特定校验
             if (dto.Type == "S7" && string.IsNullOrEmpty(dto.CpuType))
             {
                 throw new BusinessException("西门子 S7 协议必须指定 CPU 类型");
@@ -168,6 +174,12 @@ namespace ScadaServer.Application.Services
             if (model == null)
             {
                 throw new BusinessException($"ID 为 {dto.ModelId} 的变量模型不存在");
+            }
+
+            // 4. 协议一致性检查：设备协议类型必须与模型定义的协议类型一致
+            if (model.Type != dto.Type)
+            {
+                throw new BusinessException($"协议类型冲突。所选模型 '{model.Name}' 的类型为 {model.Type}，而当前设备配置的类型为 {dto.Type}。");
             }
 
             entity.Name = dto.Name;
