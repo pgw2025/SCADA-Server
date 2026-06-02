@@ -32,7 +32,12 @@ namespace ScadaServer.Application.DTOs
         public string Topic { get; set; } = string.Empty;
         public DeviceStatus Status { get; set; }
         public string CpuType { get; set; } = string.Empty;
+        [Required(ErrorMessage = "Rack 是必填项")]
+        [Range(0, 7, ErrorMessage = "Rack 必须在 0 到 7 之间")]
         public int? Rack { get; set; }
+
+        [Required(ErrorMessage = "Slot 是必填项")]
+        [Range(0, 31, ErrorMessage = "Slot 必须在 0 到 31 之间")]
         public int? Slot { get; set; }
     }
 }

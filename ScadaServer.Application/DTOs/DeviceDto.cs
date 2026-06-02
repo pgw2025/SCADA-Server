@@ -36,7 +36,10 @@ namespace ScadaServer.Application.DTOs
         public string? Topic { get; set; }
         public DeviceStatus Status { get; set; }
         public string? CpuType { get; set; }
+        [Range(0, 7, ErrorMessage = "Rack 必须在 0 到 7 之间")]
         public int? Rack { get; set; }
+
+        [Range(0, 31, ErrorMessage = "Slot 必须在 0 到 31 之间")]
         public int? Slot { get; set; }
         public DateTime LastUpdated { get; set; }
     }
