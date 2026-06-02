@@ -1,6 +1,7 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Exceptions;
 namespace ScadaServer.Application.Services
 {
     public class AreaAppService : IAreaAppService
@@ -35,7 +36,7 @@ namespace ScadaServer.Application.Services
             var existing = await _repository.GetListAsync(a => a.Name == dto.Name);
             if (existing.Any())
             {
-                throw new Exception($"区域名称 '{dto.Name}' 已存在");
+                throw new BusinessException($"区域名称 '{dto.Name}' 已存在");
             }
 
             var entity = new Area { Name = dto.Name, Description = dto.Description };
@@ -52,14 +53,14 @@ namespace ScadaServer.Application.Services
             var entity = await _repository.GetByIdAsync(dto.Id);
             if (entity == null)
             {
-                throw new Exception($"ID 为 {dto.Id} 的区域不存在");
+                throw new BusinessException($"ID 为 {dto.Id} 的区域不存在");
             }
 
             // 2. 业务校验：名称不能与其他区域重复
             var existing = await _repository.GetListAsync(a => a.Name == dto.Name && a.Id != dto.Id);
             if (existing.Any())
             {
-                throw new Exception($"区域名称 '{dto.Name}' 已存在");
+                throw new BusinessException($"区域名称 '{dto.Name}' 已存在");
             }
 
             // 3. 更新字段
@@ -87,7 +88,7 @@ namespace ScadaServer.Application.Services
             var devices = await _deviceRepository.GetListAsync(d => d.AreaId == id);
             if (devices.Any())
             {
-                throw new Exception($"无法删除区域 '{entity.Name}'，因为该区域下尚有 {devices.Count} 台设备。请先移除或删除相关设备。");
+                throw new BusinessException($"无法删除区域 '{entity.Name}'，因为该区域下尚有 {devices.Count} 台设备。请先移除或删除相关设备。");
             }
 
             // 3. 执行删除

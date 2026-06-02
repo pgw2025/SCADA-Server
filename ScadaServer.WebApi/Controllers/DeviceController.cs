@@ -10,72 +10,36 @@ namespace ScadaServer.WebApi.Controllers
     public class DeviceController : ControllerBase
     {
         private readonly IDeviceAppService _deviceAppService;
-        private readonly IDeviceRepository _deviceRepo;
 
-        public DeviceController(IDeviceAppService deviceAppService, IDeviceRepository deviceRepo)
+        public DeviceController(IDeviceAppService deviceAppService)
         {
             _deviceAppService = deviceAppService;
-            _deviceRepo = deviceRepo;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _deviceRepo.GetListAsync());
+        public async Task<IActionResult> GetAll() => Ok(await _deviceAppService.GetListAsync());
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id) => Ok(await _deviceRepo.GetByIdAsync(id));
+        public async Task<IActionResult> GetById(int id) => Ok(await _deviceAppService.GetByIdAsync(id));
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateDeviceDto dto)
         {
-            var device = new Device
-            {
-                Name = dto.Name,
-                Code = dto.Code,
-                AreaId = dto.AreaId,
-                ModelId = dto.ModelId,
-                Type = dto.Type,
-                IpAddress = dto.IpAddress,
-                Port = dto.Port,
-                Topic = dto.Topic,
-                Status = dto.Status,
-                CpuType = dto.CpuType,
-                Rack = dto.Rack,
-                Slot = dto.Slot,
-                LastUpdated = DateTime.Now
-            };
-            await _deviceRepo.InsertAsync(device);
-            return Ok(device);
+            var result = await _deviceAppService.CreateAsync(dto);
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] CreateDeviceDto dto)
         {
-            var device = await _deviceRepo.GetByIdAsync(id);
-            if (device == null) return NotFound();
-
-            device.Name = dto.Name;
-            device.Code = dto.Code;
-            device.AreaId = dto.AreaId;
-            device.ModelId = dto.ModelId;
-            device.Type = dto.Type;
-            device.IpAddress = dto.IpAddress;
-            device.Port = dto.Port;
-            device.Topic = dto.Topic;
-            device.Status = dto.Status;
-            device.CpuType = dto.CpuType;
-            device.Rack = dto.Rack;
-            device.Slot = dto.Slot;
-            device.LastUpdated = DateTime.Now;
-
-            await _deviceRepo.UpdateAsync(device);
-            return Ok();
+            var result = await _deviceAppService.UpdateAsync(id, dto);
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var device = await _deviceRepo.GetByIdAsync(id);
-            if (device != null) await _deviceRepo.DeleteAsync(device);
+            await _deviceAppService.DeleteAsync(id);
             return Ok();
         }
 

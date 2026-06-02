@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using ScadaServer.Domain.Exceptions;
 
 namespace ScadaServer.WebApi.Middlewares
 {
@@ -7,11 +8,13 @@ namespace ScadaServer.WebApi.Middlewares
     {
         private readonly RequestDelegate _next;
         private readonly ILogger<ExceptionMiddleware> _logger;
+        private readonly IHostEnvironment _env;
 
-        public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
+        public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IHostEnvironment env)
         {
             _next = next;
             _logger = logger;
+            _env = env;
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -22,24 +25,44 @@ namespace ScadaServer.WebApi.Middlewares
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An unhandled exception has occurred.");
                 await HandleExceptionAsync(context, ex);
             }
         }
 
-        private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+        private async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+            
+            var statusCode = (int)HttpStatusCode.InternalServerError;
+            var message = "Internal Server Error";
+            object? errors = null;
+
+            if (exception is BusinessException bizEx)
+            {
+                statusCode = bizEx.StatusCode;
+                message = bizEx.Message;
+                errors = bizEx.Errors;
+            }
+            else
+            {
+                _logger.LogError(exception, "An unhandled exception has occurred.");
+                if (_env.IsDevelopment())
+                {
+                    message = exception.Message;
+                    errors = exception.StackTrace;
+                }
+            }
+
+            context.Response.StatusCode = statusCode;
 
             var response = new
             {
-                StatusCode = context.Response.StatusCode,
-                Message = "Internal Server Error from the custom middleware.",
-                Detail = exception.Message
+                success = false,
+                message = message,
+                errors = errors
             };
 
-            return context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
         }
     }
 }

@@ -35,10 +35,9 @@ builder.Services.AddControllers()
 
             var result = new
             {
-                Title = "数据校验失败",
-                Status = 400,
-                Errors = errors,
-                Message = "请检查请求参数，确保所有字段类型正确。"
+                success = false,
+                message = "数据校验失败",
+                errors = errors
             };
 
             return new BadRequestObjectResult(result);
