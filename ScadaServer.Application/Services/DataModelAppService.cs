@@ -28,13 +28,43 @@ namespace ScadaServer.Application.Services
         {
             var entity = await _repository.GetByIdAsync(id);
             if (entity == null) return null;
-            return new DataModelDto { Id = entity.Id, Name = entity.Name, Description = entity.Description, Type = entity.Type };
+            return MapToDto(entity);
         }
 
         public async Task<List<DataModelDto>> GetListAsync()
         {
             var list = await _repository.GetListAsync();
-            return list.Select(entity => new DataModelDto { Id = entity.Id, Name = entity.Name, Description = entity.Description, Type = entity.Type }).ToList();
+            return list.Select(entity => MapToDto(entity)).ToList();
+        }
+
+        private DataModelDto MapToDto(DataModel entity)
+        {
+            return new DataModelDto
+            {
+                Id = entity.Id,
+                Name = entity.Name,
+                Description = entity.Description,
+                Type = entity.Type,
+                Variables = entity.Variables?.Select(v => new ModelVariableDto
+                {
+                    Id = v.Id,
+                    ModelId = v.ModelId,
+                    Key = v.Key,
+                    Name = v.Name,
+                    Type = v.Type,
+                    DataType = v.DataType,
+                    Unit = v.Unit,
+                    Min = v.Min,
+                    Max = v.Max,
+                    Address = v.Address,
+                    Description = v.Description,
+                    IsStored = v.IsStored,
+                    StoreMode = v.StoreMode,
+                    UpdateMode = v.UpdateMode,
+                    PollingIntervalMs = v.PollingIntervalMs,
+                    ExtensionData = v.ExtensionData
+                }).ToList() ?? new List<ModelVariableDto>()
+            };
         }
 
         public async Task<DataModelDto> CreateAsync(CreateDataModelDto dto)
@@ -60,7 +90,7 @@ namespace ScadaServer.Application.Services
             var entity = new DataModel { Name = dto.Name, Description = dto.Description?.Trim(), Type = dto.Type };
             await _repository.InsertAsync(entity);
             
-            return new DataModelDto { Id = entity.Id, Name = entity.Name, Description = entity.Description, Type = entity.Type };
+            return MapToDto(entity);
         }
 
         public async Task<DataModelDto> UpdateAsync(DataModelDto dto)
@@ -105,7 +135,7 @@ namespace ScadaServer.Application.Services
             entity.Type = dto.Type;
             await _repository.UpdateAsync(entity);
 
-            return new DataModelDto { Id = entity.Id, Name = entity.Name, Description = entity.Description, Type = entity.Type };
+            return MapToDto(entity);
         }
 
         public async Task DeleteAsync(int id)

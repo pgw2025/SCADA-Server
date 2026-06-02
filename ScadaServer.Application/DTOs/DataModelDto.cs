@@ -16,5 +16,10 @@ namespace ScadaServer.Application.DTOs
         [Required(ErrorMessage = "模型类型不能为空")]
         [RegularExpression("^(S7|OPCUA|MQTT|Virtual)$", ErrorMessage = "不支持的模型类型。可选值：S7, OPCUA, MQTT, Virtual")]
         public string Type { get; set; }
+
+        /// <summary>
+        /// 模型下的变量列表
+        /// </summary>
+        public List<ModelVariableDto> Variables { get; set; } = new();
     }
 }
