@@ -10,11 +10,16 @@ namespace ScadaServer.Application.Services
     {
         private readonly IModelVariableRepository _repository;
         private readonly IDataModelRepository _modelRepository;
+        private readonly IVariableTriggerRepository _triggerRepository;
 
-        public ModelVariableAppService(IModelVariableRepository repository, IDataModelRepository modelRepository) 
+        public ModelVariableAppService(
+            IModelVariableRepository repository, 
+            IDataModelRepository modelRepository,
+            IVariableTriggerRepository triggerRepository) 
         { 
             _repository = repository; 
             _modelRepository = modelRepository;
+            _triggerRepository = triggerRepository;
         }
 
         public async Task<ModelVariableDto> GetByIdAsync(int id)
@@ -84,7 +89,17 @@ namespace ScadaServer.Application.Services
             // 2. 深度业务校验
             ValidateVariableLogic(dto, model.Type);
 
-            // 3. 业务校验：Key 查重（排除自身）
+            // 3. 依赖检查：如果 Key 发生了变化，检查是否有触发器依赖旧 Key
+            if (entity.Key != dto.Key)
+            {
+                var hasTriggers = await _triggerRepository.AnyAsync(t => t.VariableKey == entity.Key);
+                if (hasTriggers)
+                {
+                    throw new BusinessException($"无法修改变量 Key，因为已有报警/联动规则引用了旧标识 '{entity.Key}'。请先清理关联规则。");
+                }
+            }
+
+            // 4. 业务校验：Key 查重（排除自身）
             var keyExists = await _repository.AnyAsync(v => v.ModelId == dto.ModelId && v.Key == dto.Key && v.Id != dto.Id);
             if (keyExists)
             {
@@ -100,10 +115,16 @@ namespace ScadaServer.Application.Services
         public async Task DeleteAsync(int id)
         {
             var entity = await _repository.GetByIdAsync(id);
-            if (entity != null)
+            if (entity == null) return;
+
+            // 1. 安全检查：是否有报警触发器引用此变量
+            var hasTriggers = await _triggerRepository.AnyAsync(t => t.VariableKey == entity.Key);
+            if (hasTriggers)
             {
-                await _repository.DeleteAsync(entity);
+                throw new BusinessException($"无法删除变量 '{entity.Name}'，因为它正被用于报警或联动规则中（关联 Key: {entity.Key}）。");
             }
+
+            await _repository.DeleteAsync(entity);
         }
 
         private void ValidateVariableLogic(ModelVariableDto dto, string protocolType)
