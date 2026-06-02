@@ -12,6 +12,7 @@ using ScadaServer.WebApi.Hubs;
 using Microsoft.Extensions.Options;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
@@ -20,7 +21,29 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.Configure<SystemDbOptions>(builder.Configuration.GetSection(SystemDbOptions.SectionName));
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToList()
+                );
+
+            var result = new
+            {
+                Title = "数据校验失败",
+                Status = 400,
+                Errors = errors,
+                Message = "请检查请求参数，确保所有字段类型正确。"
+            };
+
+            return new BadRequestObjectResult(result);
+        };
+    });
 
 // Add CORS policy
 builder.Services.AddCors(options =>

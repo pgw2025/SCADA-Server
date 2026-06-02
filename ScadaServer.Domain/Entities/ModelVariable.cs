@@ -44,5 +44,11 @@ namespace ScadaServer.Domain.Entities
 
         public UpdateMode UpdateMode { get; set; }
         public int PollingIntervalMs { get; set; } = 1000;
+
+        /// <summary>
+        /// 扩展属性 JSON (用于存放非核心配置，如 UI 配置、私有协议参数等)
+        /// </summary>
+        [SugarColumn(ColumnDataType = "longtext", IsJson = true)]
+        public Dictionary<string, string>? ExtensionData { get; set; }
     }
 }
