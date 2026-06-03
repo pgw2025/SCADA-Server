@@ -19,29 +19,32 @@ namespace ScadaServer.Infrastructure.Persistence
 
         public async Task CommitTranAsync()
         {
+            // 使用 SqlSugar 原生的异步提交
             await _db.AsTenant().CommitTranAsync();
         }
 
         public async Task RollbackTranAsync()
         {
+            // 使用 SqlSugar 原生的异步回滚
             await _db.AsTenant().RollbackTranAsync();
         }
 
         public async Task<ITransactionScope> BeginTransactionAsync()
         {
-            _db.AsTenant().BeginTran();
+            // 使用异步启动事务
+            await _db.AsTenant().BeginTranAsync();
             return new TransactionScope(_db);
         }
 
         public void Dispose()
         {
-            // Managed by DI Scoped lifecycle
+            // 由 DI 容器管理生命周期，此处无需手动释放
         }
 
         private class TransactionScope : ITransactionScope
         {
             private readonly ISqlSugarClient _db;
-            private bool _isCommitted = false;
+            private bool _isCompleted = false; // 变更为更准确的命名
 
             public TransactionScope(ISqlSugarClient db)
             {
@@ -51,26 +54,32 @@ namespace ScadaServer.Infrastructure.Persistence
             public async Task CommitAsync()
             {
                 await _db.AsTenant().CommitTranAsync();
-                _isCommitted = true;
+                _isCompleted = true;
             }
 
             public async Task RollbackAsync()
             {
                 await _db.AsTenant().RollbackTranAsync();
-                _isCommitted = true;
+                _isCompleted = true;
             }
 
             public async ValueTask DisposeAsync()
             {
-                if (!_isCommitted)
+                if (!_isCompleted)
                 {
                     try
                     {
+                        // 若未显式提交或回滚，则在释放时自动回滚
                         await _db.AsTenant().RollbackTranAsync();
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // 忽略回滚异常，避免掩盖原始异常
+                        // 记录日志，避免在 Dispose 中抛出异常影响后续逻辑
+                        System.Diagnostics.Debug.WriteLine($"事务自动回滚失败：{ex.Message}");
+                    }
+                    finally
+                    {
+                        _isCompleted = true;
                     }
                 }
             }

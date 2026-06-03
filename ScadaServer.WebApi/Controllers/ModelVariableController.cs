@@ -44,7 +44,7 @@ namespace ScadaServer.WebApi.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             await _appService.DeleteAsync(id);
-            return Ok();
+            return Ok(new { success = true, message = "数据变量删除成功" });
         }
     }
 }

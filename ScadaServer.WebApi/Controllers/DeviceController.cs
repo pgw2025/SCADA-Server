@@ -40,7 +40,7 @@ namespace ScadaServer.WebApi.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             await _deviceAppService.DeleteAsync(id);
-            return Ok();
+            return Ok(new { success = true, message = "设备删除成功" });
         }
 
         // 业务编排接口：更新配置并记录日志（含事务）

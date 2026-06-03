@@ -141,7 +141,10 @@ namespace ScadaServer.Application.Services
         public async Task DeleteAsync(int id)
         {
             var entity = await _repository.GetByIdAsync(id);
-            if (entity == null) return;
+            if (entity == null)
+            {
+                return; // 或者 throw new BusinessException("...");
+            }
 
             // 1. 安全检查：如果已有设备引用此模型，禁止删除
             var hasDevices = await _deviceRepository.AnyAsync(d => d.ModelId == id);
@@ -150,22 +153,17 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"无法删除模型 '{entity.Name}'，因为已有设备正在使用此模型。请先删除相关设备。");
             }
 
+            // 2. 利用 IAsyncDisposable 的自动回滚机制，使代码更清爽
             await using var transaction = await _uow.BeginTransactionAsync();
-            try
-            {
-                // 清理属于该模型的变量定义
-                await _variableRepository.DeleteRangeAsync(v => v.ModelId == id);
-                
-                // 最后删除模型本身
-                await _repository.DeleteAsync(entity);
 
-                await transaction.CommitAsync();
-            }
-            catch
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            // 清理属于该模型的变量定义
+            // await _variableRepository.DeleteRangeAsync(v => v.ModelId == id);
+    
+            // 删除模型本身
+            await _repository.DeleteAsync(entity);
+
+            // 显式提交，若未走到这一步（中途报错），transaction 销毁时会自动回滚
+            await transaction.CommitAsync();
         }
     }
 }
