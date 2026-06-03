@@ -95,6 +95,14 @@ namespace ScadaServer.Application.Services
                 }
             }
         }
+private async Task ValidateIpPortUniqueAsync(string ip, int? port, int? excludeDeviceId = null)
+{
+    var existing = await _repository.GetListAsync(d => d.IpAddress == ip && d.Port == port);
+    if (existing.Any(d => d.Id != excludeDeviceId))
+    {
+        throw new BusinessException($"已存在使用相同 IP ({ip}) 和端口 ({port}) 的设备。");
+    }
+}
 
         public async Task<DeviceDto> CreateAsync(CreateDeviceDto dto)
         {
@@ -104,6 +112,9 @@ namespace ScadaServer.Application.Services
             {
                 throw new BusinessException($"设备标识 '{dto.Key}' 已存在");
             }
+
+            // 5. 业务校验：IP+端口唯一性
+            await ValidateIpPortUniqueAsync(dto.IpAddress, dto.Port);
 
             // 2. 存在性检查：校验区域和模型是否存在
             var area = await _areaRepository.GetByIdAsync(dto.AreaId);
@@ -186,6 +197,9 @@ namespace ScadaServer.Application.Services
             {
                 throw new BusinessException($"ID 为 {dto.ModelId} 的变量模型不存在");
             }
+
+            // 5. 业务校验：IP+端口唯一性
+            await ValidateIpPortUniqueAsync(dto.IpAddress, dto.Port, dto.Id);
 
             // 4. 协议一致性检查：设备协议类型必须与模型定义的协议类型一致
             if (model.Type != dto.Type)
