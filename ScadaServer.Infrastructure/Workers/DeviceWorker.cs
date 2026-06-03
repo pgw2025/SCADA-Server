@@ -1,4 +1,3 @@
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,7 +6,6 @@ using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Enums;
 using ScadaServer.Infrastructure.Communication;
 using ScadaServer.Infrastructure.Services;
-
 using System.Collections.Concurrent;
 
 namespace ScadaServer.Infrastructure.Workers
@@ -18,14 +16,22 @@ namespace ScadaServer.Infrastructure.Workers
         private readonly IServiceProvider _serviceProvider;
         private readonly DeviceRegistry _registry;
         private readonly IScadaNotificationService _notificationService;
-        private readonly ConcurrentDictionary<int, CancellationTokenSource> _deviceTasks = new();
+        private readonly IProtocolDriverFactory _driverFactory;
+        private readonly ConcurrentDictionary<int, CancellationTokenSource> _deviceCts = new();
+        private readonly SemaphoreSlim _lock = new(1, 1);
 
-        public DeviceWorker(ILogger<DeviceWorker> logger, IServiceProvider serviceProvider, DeviceRegistry registry, IScadaNotificationService notificationService)
+        public DeviceWorker(
+            ILogger<DeviceWorker> logger, 
+            IServiceProvider serviceProvider, 
+            DeviceRegistry registry, 
+            IScadaNotificationService notificationService,
+            IProtocolDriverFactory driverFactory)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _registry = registry;
             _notificationService = notificationService;
+            _driverFactory = driverFactory;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,98 +41,192 @@ namespace ScadaServer.Infrastructure.Workers
 
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.Delay(5000, stoppingToken);
+                await Task.Delay(10000, stoppingToken);
             }
         }
 
         public async Task RefreshDevice(int deviceId)
         {
-            if (_deviceTasks.TryRemove(deviceId, out var cts))
+            await _lock.WaitAsync();
+            try
             {
-                cts.Cancel();
+                CancelAndDisposeCts(deviceId);
+
+                using var scope = _serviceProvider.CreateScope();
+                var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
+                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
+
+                var device = await deviceRepo.GetByIdAsync(deviceId);
+                if (device == null)
+                {
+                    _registry.RemoveDevice(deviceId);
+                    return;
+                }
+
+                var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
+                _registry.UpdateDevice(device, variables);
+
+                var newCts = new CancellationTokenSource();
+                _deviceCts[deviceId] = newCts;
+                
+                _ = Task.Run(() => RunDeviceOrchestratorWithRetry(device, variables, newCts.Token), newCts.Token);
             }
-
-            using var scope = _serviceProvider.CreateScope();
-            var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-            var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
-
-            var device = await deviceRepo.GetByIdAsync(deviceId);
-            if (device == null)
+            finally
             {
-                _registry.RemoveDevice(deviceId);
-                return;
+                _lock.Release();
             }
-
-            var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
-            _registry.UpdateDevice(device, variables);
-
-            var newCts = new CancellationTokenSource();
-            _deviceTasks[deviceId] = newCts;
-            _ = Task.Run(() => RunDeviceAcquisition(deviceId, newCts.Token), newCts.Token);
         }
 
         public async Task ReloadAll()
         {
-            using var scope = _serviceProvider.CreateScope();
-            var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-            var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
-
-            var devices = await deviceRepo.GetListAsync();
-            foreach (var device in devices)
+            await _lock.WaitAsync();
+            try
             {
-                var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
-                _registry.UpdateDevice(device, variables);
-                
-                if (!_deviceTasks.ContainsKey(device.Id))
+                using var scope = _serviceProvider.CreateScope();
+                var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
+                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
+
+                var devices = await deviceRepo.GetListAsync();
+                var activeDeviceIds = devices.Select(d => d.Id).ToHashSet();
+
+                // 1. Cleanup tasks for devices that no longer exist
+                foreach (var deviceId in _deviceCts.Keys)
                 {
-                    var cts = new CancellationTokenSource();
-                    _deviceTasks[device.Id] = cts;
-                    _ = Task.Run(() => RunDeviceAcquisition(device.Id, cts.Token), cts.Token);
-                }
-            }
-        }
-
-        private async Task RunDeviceAcquisition(int deviceId, CancellationToken stoppingToken)
-        {
-            var config = _registry.GetDeviceConfig(deviceId);
-            if (config == null) return;
-
-            var (device, allVariables) = config.Value;
-            var pollingVars = allVariables.Where(v => v.UpdateMode == UpdateMode.Polling).ToList();
-            var subscriptionVars = allVariables.Where(v => v.UpdateMode == UpdateMode.Subscription).ToList();
-
-            IProtocolDriver driver = device.Type == "S7" ? new S7Driver() : new OpcUaDriver();
-            
-            try 
-            {
-                if (await driver.ConnectAsync(device.IpAddress))
-                {
-                    // 订阅模式
-                    foreach (var v in subscriptionVars) {
-                        await driver.SubscribeAsync(v, (val) => {
-                             _notificationService.NotifyVariableUpdateAsync(v.Key, val);
-                        });
-                    }
-
-                    // 轮询模式
-                    while (!stoppingToken.IsCancellationRequested)
+                    if (!activeDeviceIds.Contains(deviceId))
                     {
-                        foreach (var v in pollingVars)
-                        {
-                            var val = await driver.ReadAsync(v);
-                            await _notificationService.NotifyVariableUpdateAsync(v.Key, val);
-                            SystemMonitorService.IncrementPollPackets(); // 增加计数
-                        }
-                        await Task.Delay(1000, stoppingToken);
+                        CancelAndDisposeCts(deviceId);
+                        _registry.RemoveDevice(deviceId);
+                    }
+                }
+
+                // 2. Start or update current device tasks
+                foreach (var device in devices)
+                {
+                    var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
+                    _registry.UpdateDevice(device, variables);
+                    
+                    if (!_deviceCts.ContainsKey(device.Id))
+                    {
+                        var cts = new CancellationTokenSource();
+                        _deviceCts[device.Id] = cts;
+                        _ = Task.Run(() => RunDeviceOrchestratorWithRetry(device, variables, cts.Token), cts.Token);
                     }
                 }
             }
             finally
             {
-                foreach (var v in subscriptionVars) await driver.UnsubscribeAsync(v);
-                await driver.DisconnectAsync();
+                _lock.Release();
+            }
+        }
+
+        private async Task RunDeviceOrchestratorWithRetry(Device device, List<ModelVariable> variables, CancellationToken stoppingToken)
+        {
+            var driver = _driverFactory.CreateDriver(device.Type);
+            if (driver == null)
+            {
+                _logger.LogError($"Unsupported device type: {device.Type} for device {device.Name}");
+                return;
+            }
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    _logger.LogInformation($"Connecting to {device.Name} ({device.IpAddress})...");
+                    if (await driver.ConnectAsync(device))
+                    {
+                        _logger.LogInformation($"Connected to {device.Name}. Starting acquisition tasks.");
+
+                        var subscriptionVars = variables.Where(v => v.UpdateMode == UpdateMode.Subscription).ToList();
+                        var pollingVars = variables.Where(v => v.UpdateMode == UpdateMode.Polling).ToList();
+
+                        var tasks = new List<Task>();
+
+                        if (subscriptionVars.Any())
+                        {
+                            await driver.SubscribeAsync(subscriptionVars, (key, val) =>
+                            {
+                                _ = _notificationService.NotifyVariableUpdateAsync(key, val);
+                            });
+                        }
+
+                        var pollingGroups = pollingVars.GroupBy(v => v.PollingIntervalMs);
+                        foreach (var group in pollingGroups)
+                        {
+                            tasks.Add(RunPollingLoop(driver, group.ToList(), group.Key, stoppingToken));
+                        }
+
+                        await Task.WhenAll(tasks);
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Failed to connect to {device.Name}. Will retry in 10s.");
+                        await Task.Delay(10000, stoppingToken);
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Error in acquisition for {device.Name}. Retrying in 5s...");
+                    try
+                    {
+                        await Task.Delay(5000, stoppingToken);
+                    }
+                    catch (OperationCanceledException) { break; }
+                }
+                finally
+                {
+                    try
+                    {
+                        await driver.DisconnectAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, $"Error during disconnect for {device.Name}");
+                    }
+                }
+            }
+            _logger.LogInformation($"Acquisition loop stopped for device {device.Name}");
+        }
+
+        private async Task RunPollingLoop(IProtocolDriver driver, List<ModelVariable> variables, int intervalMs, CancellationToken stoppingToken)
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(intervalMs));
+            while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                try
+                {
+                    var results = await driver.ReadBatchAsync(variables);
+                    foreach (var result in results)
+                    {
+                        await _notificationService.NotifyVariableUpdateAsync(result.Key, result.Value);
+                        SystemMonitorService.IncrementPollPackets();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"Polling error for group {intervalMs}ms: {ex.Message}");
+                }
+            }
+        }
+
+        private void CancelAndDisposeCts(int deviceId)
+        {
+            if (_deviceCts.TryRemove(deviceId, out var cts))
+            {
+                try
+                {
+                    cts.Cancel();
+                }
+                catch (ObjectDisposedException) { }
+                finally
+                {
+                    cts.Dispose();
+                }
             }
         }
     }
 }
-

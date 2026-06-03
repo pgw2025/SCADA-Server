@@ -160,6 +160,7 @@ builder.Services.AddScoped<ISystemUserRepository, SystemUserRepository>();
 builder.Services.AddScoped<IVariableTriggerRepository, VariableTriggerRepository>();
 
 builder.Services.AddSingleton<DeviceRegistry>();
+builder.Services.AddSingleton<IProtocolDriverFactory, ProtocolDriverFactory>();
 builder.Services.AddSingleton<ScadaServer.Infrastructure.Configuration.DatabaseConfigManager>();
 builder.Services.AddSingleton<SystemMonitorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SystemMonitorService>());
