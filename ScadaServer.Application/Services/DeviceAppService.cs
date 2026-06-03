@@ -79,6 +79,23 @@ namespace ScadaServer.Application.Services
             }).ToList();
         }
 
+        private static readonly HashSet<string> ValidCpuTypes = new() { "S71200", "S71500", "S7300", "S7400" };
+
+        private void ValidateCpuType(string type, string cpuType)
+        {
+            if (type == "S7")
+            {
+                if (string.IsNullOrEmpty(cpuType))
+                {
+                    throw new BusinessException("西门子 S7 协议必须指定 CPU 类型");
+                }
+                if (!ValidCpuTypes.Contains(cpuType))
+                {
+                    throw new BusinessException($"无效的 CPU 类型 '{cpuType}'。支持的类型包括: {string.Join(", ", ValidCpuTypes)}");
+                }
+            }
+        }
+
         public async Task<DeviceDto> CreateAsync(CreateDeviceDto dto)
         {
             // 1. 业务校验：Key 唯一性
@@ -108,10 +125,7 @@ namespace ScadaServer.Application.Services
             }
 
             // 4. 协议特定校验
-            if (dto.Type == "S7" && string.IsNullOrEmpty(dto.CpuType))
-            {
-                throw new BusinessException("西门子 S7 协议必须指定 CPU 类型");
-            }
+            ValidateCpuType(dto.Type, dto.CpuType);
 
             var entity = new Device
             {
@@ -178,6 +192,9 @@ namespace ScadaServer.Application.Services
             {
                 throw new BusinessException($"协议类型冲突。所选模型 '{model.Name}' 的类型为 {model.Type}，而当前设备配置的类型为 {dto.Type}。");
             }
+
+            // 5. 协议特定校验
+            ValidateCpuType(dto.Type, dto.CpuType);
 
             entity.Name = dto.Name;
             entity.Key = dto.Key;
