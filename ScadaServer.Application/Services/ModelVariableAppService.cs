@@ -2,6 +2,7 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Exceptions;
+using ScadaServer.Domain.Enums;
 using System.Text.RegularExpressions;
 
 namespace ScadaServer.Application.Services
@@ -130,7 +131,7 @@ namespace ScadaServer.Application.Services
         private void ValidateVariableLogic(ModelVariableDto dto, string protocolType)
         {
             // A. 类型匹配校验
-            if (dto.Type == "Digital" && dto.DataType != "BOOL" && dto.DataType != "BIT")
+            if (dto.Type == VariableType.Digital && dto.DataType != DataTypeEnum.BOOL && dto.DataType != DataTypeEnum.BIT)
             {
                 throw new BusinessException("数字量性质的变量，数据类型必须为 BOOL 或 BIT");
             }
@@ -203,17 +204,17 @@ namespace ScadaServer.Application.Services
             entity.Min = dto.Min;
             entity.Max = dto.Max;
             entity.Address = dto.Address;
-            entity.Description = dto.Description;
+            entity.Description = dto.Description ?? "";
             entity.IsStored = dto.IsStored;
             entity.StoreMode = dto.StoreMode;
             entity.UpdateMode = dto.UpdateMode;
             entity.PollingIntervalMs = dto.PollingIntervalMs;
-            entity.BitOffset = dto.BitOffset;
+            entity.BitOffset = dto.BitOffset ?? 0;
             entity.ScaleSlope = dto.ScaleSlope;
             entity.ScaleOffset = dto.ScaleOffset;
-            entity.DeadBand = dto.DeadBand;
+            entity.DeadBand = dto.DeadBand ?? 0.0;
             entity.IsReadOnly = dto.IsReadOnly;
-            entity.ExtensionData = dto.ExtensionData;
+            entity.ExtensionData = dto.ExtensionData ?? new Dictionary<string, string>();
             return entity;
         }
     }

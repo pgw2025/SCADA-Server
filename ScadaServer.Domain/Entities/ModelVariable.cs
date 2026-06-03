@@ -17,14 +17,10 @@ namespace ScadaServer.Domain.Entities
         /// </summary>
         public string Key { get; set; }
         public string Name { get; set; }
-        /// <summary>
-        /// 类型：Analog/Digital
-        /// </summary>
-        public string Type { get; set; }
-        /// <summary>
-        /// 数据类型：INT/REAL/BOOL
-        /// </summary>
-        public string DataType { get; set; }
+        
+        public VariableType Type { get; set; }
+        public DataTypeEnum DataType { get; set; }
+        
         public string Unit { get; set; }
         public double? Min { get; set; }
         public double? Max { get; set; }
@@ -32,7 +28,7 @@ namespace ScadaServer.Domain.Entities
         /// 寄存器地址
         /// </summary>
         public string Address { get; set; }
-        public string Description { get; set; }
+        public string? Description { get; set; }
         /// <summary>
         /// 是否存入历史库
         /// </summary>

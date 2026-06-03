@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using ScadaServer.Domain.Enums;
 
 namespace ScadaServer.Application.DTOs;
@@ -20,10 +21,12 @@ public class ModelVariableDto
     public string Name { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "变量类型不能为空")]
-    public string Type { get; set; } = string.Empty; // Analog/Digital
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public VariableType Type { get; set; }
 
     [Required(ErrorMessage = "数据类型不能为空")]
-    public string DataType { get; set; } = string.Empty; // INT/REAL/BOOL
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public DataTypeEnum DataType { get; set; }
 
     public string? Unit { get; set; }
     public double? Min { get; set; }
