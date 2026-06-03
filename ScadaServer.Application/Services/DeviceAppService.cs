@@ -17,16 +17,16 @@ namespace ScadaServer.Application.Services
         private readonly IUnitOfWork _uow;
 
         public DeviceAppService(
-            IDeviceRepository repository, 
+            IDeviceRepository repository,
             ISensorRepository sensorRepository,
             IVariableTriggerRepository triggerRepository,
             IRealtimeDataRepository realtimeDataRepository,
             IExposedInterfaceRepository interfaceRepository,
             IAreaRepository areaRepository,
             IDataModelRepository modelRepository,
-            IUnitOfWork uow) 
-        { 
-            _repository = repository; 
+            IUnitOfWork uow)
+        {
+            _repository = repository;
             _sensorRepository = sensorRepository;
             _triggerRepository = triggerRepository;
             _realtimeDataRepository = realtimeDataRepository;
@@ -143,10 +143,10 @@ namespace ScadaServer.Application.Services
             // 1. 运行状态保护：在线设备禁止修改关键通信参数
             if (entity.Status == DeviceStatus.Online)
             {
-                bool criticalChanged = entity.IpAddress != dto.IpAddress || 
-                                     entity.Port != dto.Port || 
+                bool criticalChanged = entity.IpAddress != dto.IpAddress ||
+                                     entity.Port != dto.Port ||
                                      entity.Type != dto.Type;
-                
+
                 if (criticalChanged)
                 {
                     throw new BusinessException($"设备 '{entity.Name}' 处于在线运行状态，禁止修改 IP、端口或协议类型。请先停止设备。");
@@ -191,7 +191,7 @@ namespace ScadaServer.Application.Services
             entity.Rack = dto.Rack;
             entity.Slot = dto.Slot;
             entity.LastUpdated = DateTime.Now;
-            
+
             await _repository.UpdateAsync(entity);
             return await GetByIdAsync(dto.Id);
         }
@@ -222,7 +222,7 @@ namespace ScadaServer.Application.Services
                 await _triggerRepository.DeleteRangeAsync(t => t.DeviceId == id);
                 await _realtimeDataRepository.DeleteRangeAsync(r => r.DeviceId == id);
                 await _interfaceRepository.DeleteRangeAsync(i => i.DeviceId == id);
-                
+
                 // 删除设备
                 await _repository.DeleteAsync(entity);
 
@@ -234,7 +234,7 @@ namespace ScadaServer.Application.Services
                 throw;
             }
         }
-        
+
         public async Task UpdateDeviceConfigTxAsync(int deviceId, string newAddress) { }
     }
 }

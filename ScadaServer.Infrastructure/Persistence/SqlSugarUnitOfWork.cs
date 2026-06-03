@@ -19,20 +19,12 @@ namespace ScadaServer.Infrastructure.Persistence
 
         public async Task CommitTranAsync()
         {
-            try
-            {
-                await Task.Run(() => _db.AsTenant().CommitTran());
-            }
-            catch
-            {
-                await RollbackTranAsync();
-                throw;
-            }
+            await _db.AsTenant().CommitTranAsync();
         }
 
         public async Task RollbackTranAsync()
         {
-            await Task.Run(() => _db.AsTenant().RollbackTran());
+            await _db.AsTenant().RollbackTranAsync();
         }
 
         public void Dispose()

@@ -48,12 +48,21 @@ builder.Services.AddControllers()
 builder.Services.AddCors(options =>
 {
     var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>() ?? Array.Empty<string>();
-    options.AddPolicy("AllowSpecificOrigins", builder =>
+    options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        builder.WithOrigins(allowedOrigins)
+        policy.WithOrigins(allowedOrigins)
                .AllowAnyMethod()
                .AllowAnyHeader()
-               .AllowCredentials();
+               .AllowCredentials()
+               .SetIsOriginAllowedToAllowWildcardSubdomains();
+        
+        // 如果配置列表中没有，也可以动态允许
+        policy.SetIsOriginAllowed(origin => 
+        {
+            if (string.IsNullOrWhiteSpace(origin)) return false;
+            // 允许 localhost 和指定的 IP 范围
+            return origin.Contains("localhost") || origin.Contains("127.0.0.1") || origin.Contains("100.88.88.");
+        });
     });
 });
 
@@ -186,6 +195,9 @@ builder.Services.AddHostedService<DeviceWorker>();
 
 var app = builder.Build();
 
+// 1. 确保 CORS 最先处理，包括处理 OPTIONS 预检请求
+app.UseCors("AllowSpecificOrigins");
+
 // 自动初始化数据库表结构
 app.InitDatabase();
 
@@ -197,13 +209,16 @@ app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ScadaServer API v1");
-    c.RoutePrefix = string.Empty; // 这会让 Swagger 成为首页 (http://localhost:5043/)
+    c.RoutePrefix = string.Empty; // 这会让 Swagger 成为首页
 });
 
-app.UseHttpsRedirection();
-app.UseCors("AllowSpecificOrigins");
+// app.UseHttpsRedirection();
+
+app.UseRouting();
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 app.MapHub<ScadaHub>("/hubs/scada");
 
