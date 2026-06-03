@@ -51,7 +51,7 @@ namespace ScadaServer.Application.Services
 
         public async Task DeleteAsync(int id)
         {
-            _uow.BeginTran();
+            await using var transaction = await _uow.BeginTransactionAsync();
             try
             {
                 // 删除页面下所有组件
@@ -61,11 +61,11 @@ namespace ScadaServer.Application.Services
                 var entity = await _repository.GetByIdAsync(id);
                 if (entity != null) await _repository.DeleteAsync(entity);
 
-                await _uow.CommitTranAsync();
+                await transaction.CommitAsync();
             }
             catch
             {
-                await _uow.RollbackTranAsync();
+                await transaction.RollbackAsync();
                 throw;
             }
         }

@@ -214,7 +214,7 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"无法删除设备 '{entity.Name}'，因为它已被配置到 {interfaces.Count} 个对外数据接口中。请先解除绑定。");
             }
 
-            _uow.BeginTran();
+            await using var transaction = await _uow.BeginTransactionAsync();
             try
             {
                 // 删除级联数据
@@ -226,11 +226,11 @@ namespace ScadaServer.Application.Services
                 // 删除设备
                 await _repository.DeleteAsync(entity);
 
-                await _uow.CommitTranAsync();
+                await transaction.CommitAsync();
             }
             catch
             {
-                await _uow.RollbackTranAsync();
+                await transaction.RollbackAsync();
                 throw;
             }
         }

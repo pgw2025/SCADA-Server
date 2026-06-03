@@ -7,6 +7,13 @@ namespace ScadaServer.Application.Interfaces
         void BeginTran();
         Task CommitTranAsync();
         Task RollbackTranAsync();
+        Task<ITransactionScope> BeginTransactionAsync();
+    }
+
+    public interface ITransactionScope : IAsyncDisposable
+    {
+        Task CommitAsync();
+        Task RollbackAsync();
     }
 }
 

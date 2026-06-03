@@ -150,7 +150,7 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"无法删除模型 '{entity.Name}'，因为已有设备正在使用此模型。请先删除相关设备。");
             }
 
-            _uow.BeginTran();
+            await using var transaction = await _uow.BeginTransactionAsync();
             try
             {
                 // 清理属于该模型的变量定义
@@ -159,11 +159,11 @@ namespace ScadaServer.Application.Services
                 // 最后删除模型本身
                 await _repository.DeleteAsync(entity);
 
-                await _uow.CommitTranAsync();
+                await transaction.CommitAsync();
             }
             catch
             {
-                await _uow.RollbackTranAsync();
+                await transaction.RollbackAsync();
                 throw;
             }
         }
