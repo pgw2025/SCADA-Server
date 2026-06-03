@@ -7,7 +7,8 @@ namespace ScadaServer.Infrastructure.Communication
     public class S7Driver : IProtocolDriver
     {
         private Plc _plc;
-        private static readonly Regex S7AddressRegex = new Regex(@"DB(?<db>\d+)\.(?<type>[A-Z]+)(?<offset>\d+)(\.(?<bit>\d+))?", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        // 支持的格式：DB1.DBX0.0, DB1.DBW10, I0.1, Q0.0, M10.0, MW10, MD10, IB0, QB0, MB0 等
+        private static readonly Regex S7AddressRegex = new Regex(@"^(?:DB(?<db>\d+)\.)?(?<type>DBX|DBB|DBW|DBD|I|Q|M|IB|IW|ID|QB|QW|QD|MB|MW|MD)(?<offset>\d+)(?:\.(?<bit>\d+))?$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public async Task<bool> ConnectAsync(Device device)
         {
@@ -36,39 +37,39 @@ namespace ScadaServer.Infrastructure.Communication
             var results = new Dictionary<string, object>();
             if (_plc == null || !_plc.IsConnected) return results;
 
-            // Group by DB block
+            // 1. 解析地址并按 S7.Net 的 DataType 和 DBNumber 分组
             var groups = variables.Select(v => new { Variable = v, Info = ParseAddress(v.Address) })
                                  .Where(x => x.Info != null)
-                                 .GroupBy(x => x.Info.DbNumber);
+                                 .GroupBy(x => new { x.Info.S7Area, x.Info.DbNumber });
 
             foreach (var group in groups)
             {
-                int dbNumber = group.Key;
+                var s7Area = group.Key.S7Area;
+                int dbNumber = group.Key.DbNumber;
                 var varInfos = group.ToList();
 
-                // Calculate range
+                // 2. 计算该组的地址范围
                 int minOffset = varInfos.Min(x => x.Info.ByteOffset);
                 int maxOffset = varInfos.Max(x => x.Info.ByteOffset + x.Info.ByteLength);
                 int length = maxOffset - minOffset;
 
-                // S7.Net Max PDU size is usually 240-480 bytes, but ReadBytes handles fragmentation if needed
-                // However, for efficiency, we might want to split if the gap is too large. 
-                // For now, we'll read the whole range.
-                byte[] buffer = await _plc.ReadBytesAsync(DataType.DataBlock, dbNumber, minOffset, length);
+                // 3. 执行批量读取
+                byte[] buffer = await _plc.ReadBytesAsync(s7Area, dbNumber, minOffset, length);
 
+                // 4. 解析结果
                 foreach (var item in varInfos)
                 {
                     var info = item.Info;
                     var variable = item.Variable;
                     int relativeOffset = info.ByteOffset - minOffset;
 
-                    object value = info.DataType switch
+                    object value = info.ValueType switch
                     {
-                        "DBX" => (buffer[relativeOffset] & (1 << info.BitOffset)) != 0,
-                        "DBB" => buffer[relativeOffset],
-                        "DBW" => S7.Net.Types.Int.FromByteArray(new byte[] { buffer[relativeOffset], buffer[relativeOffset + 1] }),
-                        "DBD" => info.IsReal ? S7.Net.Types.Real.FromByteArray(new byte[] { buffer[relativeOffset], buffer[relativeOffset + 1], buffer[relativeOffset + 2], buffer[relativeOffset + 3] }) 
-                                            : S7.Net.Types.DInt.FromByteArray(new byte[] { buffer[relativeOffset], buffer[relativeOffset + 1], buffer[relativeOffset + 2], buffer[relativeOffset + 3] }),
+                        "BIT" => (buffer[relativeOffset] & (1 << info.BitOffset)) != 0,
+                        "BYTE" => buffer[relativeOffset],
+                        "INT" => S7.Net.Types.Int.FromByteArray(new byte[] { buffer[relativeOffset], buffer[relativeOffset + 1] }),
+                        "REAL" => S7.Net.Types.Real.FromByteArray(new byte[] { buffer[relativeOffset], buffer[relativeOffset + 1], buffer[relativeOffset + 2], buffer[relativeOffset + 3] }),
+                        "DINT" => S7.Net.Types.DInt.FromByteArray(new byte[] { buffer[relativeOffset], buffer[relativeOffset + 1], buffer[relativeOffset + 2], buffer[relativeOffset + 3] }),
                         _ => null
                     };
 
@@ -107,39 +108,63 @@ namespace ScadaServer.Infrastructure.Communication
             var match = S7AddressRegex.Match(address);
             if (!match.Success) return null;
 
-            int db = int.Parse(match.Groups["db"].Value);
-            string type = match.Groups["type"].Value.ToUpper();
+            string typeStr = match.Groups["type"].Value.ToUpper();
             int offset = int.Parse(match.Groups["offset"].Value);
             int bit = match.Groups["bit"].Success ? int.Parse(match.Groups["bit"].Value) : 0;
+            int db = match.Groups["db"].Success ? int.Parse(match.Groups["db"].Value) : 0;
 
-            int byteLength = type switch
+            var info = new S7AddressInfo { ByteOffset = offset, BitOffset = bit, DbNumber = db };
+
+            // 映射 S7.Net 的 DataType
+            if (typeStr.StartsWith("DB"))
             {
-                "DBX" => 1,
-                "DBB" => 1,
-                "DBW" => 2,
-                "DBD" => 4,
+                info.S7Area = DataType.DataBlock;
+                info.ValueType = typeStr switch
+                {
+                    "DBX" => "BIT",
+                    "DBB" => "BYTE",
+                    "DBW" => "INT",
+                    "DBD" => "DINT", // 默认为 DINT，后续可扩展
+                    _ => "BYTE"
+                };
+            }
+            else if (typeStr.StartsWith("I"))
+            {
+                info.S7Area = DataType.Input;
+                info.ValueType = typeStr switch { "IB" => "BYTE", "IW" => "INT", "ID" => "DINT", _ => "BIT" };
+            }
+            else if (typeStr.StartsWith("Q"))
+            {
+                info.S7Area = DataType.Output;
+                info.ValueType = typeStr switch { "QB" => "BYTE", "QW" => "INT", "QD" => "DINT", _ => "BIT" };
+            }
+            else if (typeStr.StartsWith("M"))
+            {
+                info.S7Area = DataType.Memory;
+                info.ValueType = typeStr switch { "MB" => "BYTE", "MW" => "INT", "MD" => "DINT", _ => "BIT" };
+            }
+
+            info.ByteLength = info.ValueType switch
+            {
+                "BIT" => 1,
+                "BYTE" => 1,
+                "INT" => 2,
+                "DINT" => 4,
+                "REAL" => 4,
                 _ => 1
             };
 
-            return new S7AddressInfo
-            {
-                DbNumber = db,
-                DataType = type,
-                ByteOffset = offset,
-                BitOffset = bit,
-                ByteLength = byteLength,
-                IsReal = type == "DBD" // Default to DInt or Real based on some heuristic or variable Type
-            };
+            return info;
         }
 
         private class S7AddressInfo
         {
+            public DataType S7Area { get; set; }
             public int DbNumber { get; set; }
-            public string DataType { get; set; }
+            public string ValueType { get; set; } // BIT, BYTE, INT, DINT, REAL
             public int ByteOffset { get; set; }
             public int BitOffset { get; set; }
             public int ByteLength { get; set; }
-            public bool IsReal { get; set; }
         }
     }
 }
