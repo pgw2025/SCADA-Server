@@ -53,11 +53,17 @@ namespace ScadaServer.Application.Services
             // 2. 深度业务校验
             ValidateVariableLogic(dto, model.Type);
 
-            // 3. 业务校验：在同一个模型下 Key 必须唯一
+            // 3. 业务校验：在同一个模型下 Key 和 Address 必须唯一
             var keyExists = await _repository.AnyAsync(v => v.ModelId == dto.ModelId && v.Key == dto.Key);
             if (keyExists)
             {
                 throw new BusinessException($"模型内已存在标识为 '{dto.Key}' 的变量");
+            }
+
+            var addrExists = await _repository.AnyAsync(v => v.ModelId == dto.ModelId && v.Address == dto.Address);
+            if (addrExists)
+            {
+                throw new BusinessException($"模型内已存在地址为 '{dto.Address}' 的变量");
             }
 
             var entity = MapToEntity(dto);
@@ -100,11 +106,17 @@ namespace ScadaServer.Application.Services
                 }
             }
 
-            // 4. 业务校验：Key 查重（排除自身）
+            // 4. 业务校验：Key 和 Address 查重（排除自身）
             var keyExists = await _repository.AnyAsync(v => v.ModelId == dto.ModelId && v.Key == dto.Key && v.Id != dto.Id);
             if (keyExists)
             {
                 throw new BusinessException($"模型内已存在标识为 '{dto.Key}' 的变量");
+            }
+
+            var addrExists = await _repository.AnyAsync(v => v.ModelId == dto.ModelId && v.Address == dto.Address && v.Id != dto.Id);
+            if (addrExists)
+            {
+                throw new BusinessException($"模型内已存在地址为 '{dto.Address}' 的变量");
             }
 
             MapToEntity(dto, entity);
@@ -137,27 +149,35 @@ namespace ScadaServer.Application.Services
             }
 
             // B. 地址格式校验
-            if (string.IsNullOrEmpty(dto.Address))
+            if (string.IsNullOrWhiteSpace(dto.Address))
             {
                 throw new BusinessException("变量地址不能为空");
             }
 
             if (protocolType == "S7")
             {
-                // 西门子 S7 地址正则校验：支持 DB块(DB1.DBD0) 或 寄存器区(I0.0, Q1.2, M10.5)
-                var s7Regex = @"^(DB\d+\.DB[XWDB]\d+(\.\d+)?)|([IQM]\d+\.\d+)$";
+                // 西门子 S7 地址正则校验：支持 DB块(DB1.DBX0.0) 或 寄存器区(I0.0, Q1.2, M10.5, MW100, MD100等)
+                var s7Regex = @"^(?:DB\d+\.DB[XWDB]\d+(\.\d+)?)|([IQM](?:B|W|D)?\d+(\.\d+)?)$";
                 if (!Regex.IsMatch(dto.Address, s7Regex, RegexOptions.IgnoreCase))
                 {
-                    throw new BusinessException($"西门子 S7 地址 '{dto.Address}' 格式不正确。示例：DB1.DBD0, I0.0, M10.5");
+                    throw new BusinessException($"西门子 S7 地址 '{dto.Address}' 格式不正确。示例：DB1.DBX0.0, I0.0, Q1.2, M10.5, MW100");
                 }
             }
             else if (protocolType == "OPCUA")
             {
-                // OPC UA 节点 ID 通常包含 ns=
+                // OPC UA 节点 ID 通常包含 ns= 或 i=
                 if (!dto.Address.Contains("ns=") && !dto.Address.Contains("i="))
                 {
                     throw new BusinessException($"OPC UA 节点 ID '{dto.Address}' 格式不正确。通常应包含 'ns=' 或 'i='。");
                 }
+            }
+            else if (protocolType == "Virtual")
+            {
+                // Virtual 类型不校验具体地址格式，允许任意字符串
+            }
+            else
+            {
+                throw new BusinessException($"不支持的协议类型: {protocolType}");
             }
 
             // C. 历史存储检查
