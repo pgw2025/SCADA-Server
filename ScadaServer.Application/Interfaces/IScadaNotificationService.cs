@@ -2,6 +2,6 @@ namespace ScadaServer.Application.Interfaces
 {
     public interface IScadaNotificationService
     {
-        Task NotifyVariableUpdateAsync(string variableKey, object value);
+        Task NotifyVariableUpdateAsync(int deviceId, string variableKey, object value);
     }
 }

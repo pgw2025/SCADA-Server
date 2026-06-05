@@ -38,8 +38,26 @@ public class SystemMonitorService : BackgroundService
                 var category = new PerformanceCounterCategory("Network Interface");
                 foreach (var instance in category.GetInstanceNames())
                 {
-                    _netInCounters.Add(new PerformanceCounter("Network Interface", "Bytes Received/sec", instance));
-                    _netOutCounters.Add(new PerformanceCounter("Network Interface", "Bytes Sent/sec", instance));
+                    // 过滤掉虚拟或不稳定的接口
+                    if (instance.Contains("Teredo") || instance.Contains("Loopback") || instance.Contains("Pseudo-Interface"))
+                        continue;
+
+                    try
+                    {
+                        var inCounter = new PerformanceCounter("Network Interface", "Bytes Received/sec", instance);
+                        var outCounter = new PerformanceCounter("Network Interface", "Bytes Sent/sec", instance);
+                        
+                        // 初次调用以初始化
+                        inCounter.NextValue();
+                        outCounter.NextValue();
+                        
+                        _netInCounters.Add(inCounter);
+                        _netOutCounters.Add(outCounter);
+                    }
+                    catch
+                    {
+                        // 忽略无法初始化的接口
+                    }
                 }
             }
             catch (Exception)
@@ -47,6 +65,23 @@ public class SystemMonitorService : BackgroundService
                 // In case of insufficient permissions or system limitations
             }
         }
+    }
+
+    private double SafeSumCounters(IEnumerable<PerformanceCounter> counters)
+    {
+        double sum = 0;
+        foreach (var counter in counters)
+        {
+            try
+            {
+                sum += counter.NextValue();
+            }
+            catch
+            {
+                // 忽略不存在或失效的计数器
+            }
+        }
+        return sum;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -65,7 +100,11 @@ public class SystemMonitorService : BackgroundService
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                cpu = _cpuCounter?.NextValue() ?? 0.0;
+                try
+                {
+                    cpu = _cpuCounter?.NextValue() ?? 0.0;
+                }
+                catch { }
                 
                 var memInfo = GC.GetGCMemoryInfo();
                 long totalBytes = memInfo.TotalAvailableMemoryBytes;
@@ -77,9 +116,14 @@ public class SystemMonitorService : BackgroundService
                     memPercent = ((totalMb - availableMb) / totalMb) * 100;
                 }
 
-                diskTime = _diskTimeCounter?.NextValue() ?? 0.0;
-                netIn = _netInCounters.Sum(c => c.NextValue()) / 1024.0; // KB/s
-                netOut = _netOutCounters.Sum(c => c.NextValue()) / 1024.0; // KB/s
+                try
+                {
+                    diskTime = _diskTimeCounter?.NextValue() ?? 0.0;
+                }
+                catch { }
+
+                netIn = SafeSumCounters(_netInCounters) / 1024.0; // KB/s
+                netOut = SafeSumCounters(_netOutCounters) / 1024.0; // KB/s
             }
 
             CurrentStatus = new SystemStatusDto

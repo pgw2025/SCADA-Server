@@ -189,6 +189,7 @@ builder.Services.AddScoped<ISystemScriptAppService, SystemScriptAppService>();
 builder.Services.AddScoped<ISystemUserAppService, SystemUserAppService>();
 builder.Services.AddScoped<IVariableTriggerAppService, VariableTriggerAppService>();
 
+builder.Services.AddSingleton<IMqttManager, MqttManager>();
 builder.Services.AddSingleton<IScadaNotificationService, SignalRNotificationService>();
 
 // 5. Register Background Worker
@@ -201,6 +202,10 @@ app.UseCors("AllowSpecificOrigins");
 
 // 自动初始化数据库表结构
 app.InitDatabase();
+
+// 初始化 MQTT 管理器
+var mqttManager = app.Services.GetRequiredService<IMqttManager>();
+await mqttManager.StartAsync();
 
 // Use Custom Global Exception Middleware
 app.UseMiddleware<ScadaServer.WebApi.Middlewares.ExceptionMiddleware>();
