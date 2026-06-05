@@ -6,6 +6,7 @@ using ScadaServer.Infrastructure.Repositories;
 using ScadaServer.Infrastructure.Communication;
 using ScadaServer.Infrastructure.Workers;
 using ScadaServer.Infrastructure.Services;
+using ScadaServer.Application.DTOs;
 using ScadaServer.Application.Options;
 using ScadaServer.WebApi.Services;
 using ScadaServer.WebApi.Hubs;
@@ -29,17 +30,17 @@ builder.Services.AddControllers()
             var errors = context.ModelState
                 .Where(e => e.Value?.Errors.Count > 0)
                 .ToDictionary(
-                    kvp => kvp.Key,
-                    kvp => kvp.Value?.Errors.Select(e => e.ErrorMessage).ToList()
+                    kvp => kvp.Key.Replace("$.", "").Replace("dto.", ""), // 清理字段名前缀
+                    kvp => kvp.Value?.Errors.Select(e => 
+                    {
+                        // 转换复杂的 JSON 解析错误为友好的中文提示
+                        if (e.ErrorMessage.Contains("could not be converted"))
+                            return "数据格式或类型不正确";
+                        return e.ErrorMessage;
+                    }).ToList()
                 );
 
-            var result = new
-            {
-                success = false,
-                message = "数据校验失败",
-                errors = errors
-            };
-
+            var result = ApiResponse.Fail("数据校验失败", errors);
             return new BadRequestObjectResult(result);
         };
     });

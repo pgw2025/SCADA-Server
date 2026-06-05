@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using ScadaServer.Domain.Exceptions;
+using ScadaServer.Application.DTOs;
 
 namespace ScadaServer.WebApi.Middlewares
 {
@@ -34,7 +35,7 @@ namespace ScadaServer.WebApi.Middlewares
             context.Response.ContentType = "application/json";
             
             var statusCode = (int)HttpStatusCode.InternalServerError;
-            var message = "Internal Server Error";
+            var message = "服务器内部错误";
             object? errors = null;
 
             if (exception is BusinessException bizEx)
@@ -45,7 +46,7 @@ namespace ScadaServer.WebApi.Middlewares
             }
             else
             {
-                _logger.LogError(exception, "An unhandled exception has occurred.");
+                _logger.LogError(exception, "系统未处理异常");
                 if (_env.IsDevelopment())
                 {
                     message = exception.Message;
@@ -55,14 +56,14 @@ namespace ScadaServer.WebApi.Middlewares
 
             context.Response.StatusCode = statusCode;
 
-            var response = new
+            var response = ApiResponse.Fail(message, errors);
+            
+            var jsonOptions = new JsonSerializerOptions
             {
-                success = false,
-                message = message,
-                errors = errors
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
         }
     }
 }

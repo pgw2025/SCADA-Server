@@ -21,13 +21,17 @@ namespace ScadaServer.Domain.Entities
         public VariableType Type { get; set; }
         public DataTypeEnum DataType { get; set; }
         
-        public string Unit { get; set; }
+        [SugarColumn(IsNullable = true)]
+        public string? Unit { get; set; }
+        [SugarColumn(IsNullable = true)]
         public double? Min { get; set; }
+        [SugarColumn(IsNullable = true)]
         public double? Max { get; set; }
         /// <summary>
         /// 寄存器地址
         /// </summary>
         public string Address { get; set; }
+        [SugarColumn(IsNullable = true)]
         public string? Description { get; set; }
         /// <summary>
         /// 是否存入历史库
@@ -46,6 +50,7 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 位偏移 (用于 S7/Modbus 的位寻址，如 DB1.DBX0.6 中的 6)
         /// </summary>
+        [SugarColumn(IsNullable = true)]
         public int? BitOffset { get; set; }
 
         /// <summary>
@@ -61,6 +66,7 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 采集死区 (模拟量波动小于此值时不更新/不存储)
         /// </summary>
+        [SugarColumn(IsNullable = true)]
         public double? DeadBand { get; set; }
 
         /// <summary>

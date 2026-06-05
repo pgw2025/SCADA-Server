@@ -224,15 +224,15 @@ namespace ScadaServer.Application.Services
             entity.Min = dto.Min;
             entity.Max = dto.Max;
             entity.Address = dto.Address;
-            entity.Description = dto.Description ?? "";
+            entity.Description = dto.Description;
             entity.IsStored = dto.IsStored;
             entity.StoreMode = dto.StoreMode;
             entity.UpdateMode = dto.UpdateMode;
             entity.PollingIntervalMs = dto.PollingIntervalMs;
-            entity.BitOffset = dto.BitOffset ?? 0;
+            entity.BitOffset = dto.BitOffset;
             entity.ScaleSlope = dto.ScaleSlope;
             entity.ScaleOffset = dto.ScaleOffset;
-            entity.DeadBand = dto.DeadBand ?? 0.0;
+            entity.DeadBand = dto.DeadBand;
             entity.IsReadOnly = dto.IsReadOnly;
             entity.ExtensionData = dto.ExtensionData ?? new Dictionary<string, string>();
             return entity;

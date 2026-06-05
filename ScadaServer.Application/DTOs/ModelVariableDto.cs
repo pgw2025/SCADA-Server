@@ -39,6 +39,7 @@ public class ModelVariableDto
     public bool IsStored { get; set; }
     public string StoreMode { get; set; } = "Change"; // Change/Cycle
 
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public UpdateMode UpdateMode { get; set; }
 
     [Range(1, 3600000, ErrorMessage = "采集频率必须在 1ms 到 1小时之间")]
