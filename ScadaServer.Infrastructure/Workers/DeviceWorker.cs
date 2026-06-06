@@ -17,8 +17,11 @@ namespace ScadaServer.Infrastructure.Workers
         private readonly DeviceRegistry _registry;
         private readonly IScadaNotificationService _notificationService;
         private readonly IProtocolDriverFactory _driverFactory;
-        private readonly ConcurrentDictionary<int, CancellationTokenSource> _deviceCts = new();
+        
+        // 改进：同时存储 Cts 和 Task 句柄
+        private readonly ConcurrentDictionary<int, (CancellationTokenSource Cts, Task WorkerTask)> _deviceTasks = new();
         private readonly SemaphoreSlim _lock = new(1, 1);
+        private CancellationToken _stoppingToken;
 
         public DeviceWorker(
             ILogger<DeviceWorker> logger, 
@@ -36,13 +39,41 @@ namespace ScadaServer.Infrastructure.Workers
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            _stoppingToken = stoppingToken;
             _logger.LogInformation("Acquisition Engine Started.");
+            
+            // 初始加载
             await ReloadAll();
 
-            while (!stoppingToken.IsCancellationRequested)
+            // 保持服务运行
+            try
             {
-                await Task.Delay(10000, stoppingToken);
+                await Task.Delay(Timeout.Infinite, stoppingToken);
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("Acquisition Engine Stopping...");
+            }
+        }
+
+        public override async Task StopAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Executing graceful shutdown for all acquisition tasks...");
+            
+            // 1. 触发所有任务取消信号
+            foreach (var item in _deviceTasks.Values)
+            {
+                item.Cts.Cancel();
+            }
+
+            // 2. 等待所有后台任务完成（最多等待5秒）
+            var tasks = _deviceTasks.Values.Select(x => x.WorkerTask).ToList();
+            if (tasks.Any())
+            {
+                await Task.WhenAny(Task.WhenAll(tasks), Task.Delay(5000, cancellationToken));
+            }
+
+            await base.StopAsync(cancellationToken);
         }
 
         public async Task RefreshDevice(int deviceId)
@@ -50,7 +81,7 @@ namespace ScadaServer.Infrastructure.Workers
             await _lock.WaitAsync();
             try
             {
-                CancelAndDisposeCts(deviceId);
+                await StopDeviceInternal(deviceId);
 
                 using var scope = _serviceProvider.CreateScope();
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
@@ -66,10 +97,7 @@ namespace ScadaServer.Infrastructure.Workers
                 var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
                 _registry.UpdateDevice(device, variables);
 
-                var newCts = new CancellationTokenSource();
-                _deviceCts[deviceId] = newCts;
-                
-                _ = Task.Run(() => RunDeviceOrchestratorWithRetry(device, variables, newCts.Token), newCts.Token);
+                StartDeviceTask(device, variables);
             }
             finally
             {
@@ -89,33 +117,75 @@ namespace ScadaServer.Infrastructure.Workers
                 var devices = await deviceRepo.GetListAsync();
                 var activeDeviceIds = devices.Select(d => d.Id).ToHashSet();
 
-                // 1. Cleanup tasks for devices that no longer exist
-                foreach (var deviceId in _deviceCts.Keys)
+                // 1. 清理已删除的设备任务
+                foreach (var deviceId in _deviceTasks.Keys)
                 {
                     if (!activeDeviceIds.Contains(deviceId))
                     {
-                        CancelAndDisposeCts(deviceId);
+                        await StopDeviceInternal(deviceId);
                         _registry.RemoveDevice(deviceId);
                     }
                 }
 
-                // 2. Start or update current device tasks
+                // 2. 启动或更新当前设备任务
                 foreach (var device in devices)
                 {
                     var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
                     _registry.UpdateDevice(device, variables);
                     
-                    if (!_deviceCts.ContainsKey(device.Id))
+                    if (!_deviceTasks.ContainsKey(device.Id))
                     {
-                        var cts = new CancellationTokenSource();
-                        _deviceCts[device.Id] = cts;
-                        _ = Task.Run(() => RunDeviceOrchestratorWithRetry(device, variables, cts.Token), cts.Token);
+                        StartDeviceTask(device, variables);
                     }
                 }
             }
             finally
             {
                 _lock.Release();
+            }
+        }
+
+        private void StartDeviceTask(Device device, List<ModelVariable> variables)
+        {
+            var cts = new CancellationTokenSource();
+            // 关联全局 Token，确保服务停止时所有任务也停止
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_stoppingToken, cts.Token);
+            
+            // 使用 LongRunning 选项，优化长生命周期任务的线程调度
+            var task = Task.Factory.StartNew(
+                () => RunDeviceOrchestratorWithRetry(device, variables, linkedCts.Token),
+                linkedCts.Token,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default
+            ).Unwrap();
+
+            // 监控任务异常崩溃
+            _ = task.ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    _logger.LogCritical(t.Exception, $"Fatal error in acquisition task for device: {device.Name}");
+                }
+            }, TaskContinuationOptions.OnlyOnFaulted);
+
+            _deviceTasks[device.Id] = (cts, task);
+        }
+
+        private async Task StopDeviceInternal(int deviceId)
+        {
+            if (_deviceTasks.TryRemove(deviceId, out var item))
+            {
+                try
+                {
+                    item.Cts.Cancel();
+                    // 等待该任务优雅退出
+                    await Task.WhenAny(item.WorkerTask, Task.Delay(2000));
+                }
+                catch (ObjectDisposedException) { }
+                finally
+                {
+                    item.Cts.Dispose();
+                }
             }
         }
 
@@ -247,22 +317,6 @@ namespace ScadaServer.Infrastructure.Workers
                 catch (Exception ex)
                 {
                     _logger.LogWarning($"Polling error for group {intervalMs}ms: {ex.Message}");
-                }
-            }
-        }
-
-        private void CancelAndDisposeCts(int deviceId)
-        {
-            if (_deviceCts.TryRemove(deviceId, out var cts))
-            {
-                try
-                {
-                    cts.Cancel();
-                }
-                catch (ObjectDisposedException) { }
-                finally
-                {
-                    cts.Dispose();
                 }
             }
         }
