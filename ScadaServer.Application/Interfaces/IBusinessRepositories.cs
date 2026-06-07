@@ -23,11 +23,5 @@ namespace ScadaServer.Application.Interfaces
         Task<List<VariableTrigger>> GetTriggersByDeviceAsync(int deviceId);
         Task<List<DataConversion>> GetActiveConversionsAsync();
     }
-
-    public interface IDataRepository
-    {
-        Task<List<HistoricalRecord>> GetHistoryAsync(int deviceId, string key, DateTime start, DateTime end);
-        Task<RealtimeData> GetRealtimeAsync(int deviceId, string key);
-    }
 }
 

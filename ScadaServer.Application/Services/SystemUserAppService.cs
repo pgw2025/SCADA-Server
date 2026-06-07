@@ -1,6 +1,7 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Interfaces.Repositories;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;

@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class ConfigLog
+    [SugarTable("ConfigLog")]
+    public class ConfigLog : EntityBase
     {
-        public int Id { get; set; }
         public int DeviceId { get; set; }
         public string Operator { get; set; }
         public string ChangeDesc { get; set; }

@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class VariableTrigger
+    [SugarTable("VariableTriggers")]
+    public class VariableTrigger : EntityBase
     {
-        public int Id { get; set; }
         public string Name { get; set; }
         public int DeviceId { get; set; }
         public string VariableKey { get; set; }

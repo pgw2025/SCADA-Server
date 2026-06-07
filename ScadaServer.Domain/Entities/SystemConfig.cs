@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class SystemConfig
+    [SugarTable("SystemConfig")]
+    public class SystemConfig : EntityBase
     {
-        public int Id { get; set; }
         public string SystemTitle { get; set; }
         public int PollIntervalMs { get; set; }
         public string MqttBrokerHost { get; set; }

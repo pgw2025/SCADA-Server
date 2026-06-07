@@ -2,6 +2,7 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Exceptions;
+using ScadaServer.Domain.Interfaces.Repositories;
 namespace ScadaServer.Application.Services
 {
     public class AreaAppService : IAreaAppService

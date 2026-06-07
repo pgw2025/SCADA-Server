@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ScadaServer.Application.Interfaces;
-using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -9,39 +9,36 @@ namespace ScadaServer.WebApi.Controllers
     public class ScadaProjectController : ControllerBase
     {
         private readonly IScadaProjectAppService _appService;
-        private readonly IScadaProjectRepository _repo;
 
-        public ScadaProjectController(IScadaProjectAppService appService, IScadaProjectRepository repo)
+        public ScadaProjectController(IScadaProjectAppService appService)
         {
             _appService = appService;
-            _repo = repo;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _repo.GetListAsync());
+        public async Task<IActionResult> GetAll() => Ok(await _appService.GetListAsync());
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id) => Ok(await _repo.GetByIdAsync(id));
+        public async Task<IActionResult> GetById(int id) => Ok(await _appService.GetByIdAsync(id));
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ScadaProject entity)
+        public async Task<IActionResult> Create([FromBody] ScadaProjectDto dto)
         {
-            await _repo.InsertAsync(entity);
-            return Ok(entity);
+            await _appService.CreateAsync(dto);
+            return Ok(dto);
         }
 
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] ScadaProject entity)
+        public async Task<IActionResult> Update([FromBody] ScadaProjectDto dto)
         {
-            await _repo.UpdateAsync(entity);
+            await _appService.UpdateAsync(dto);
             return Ok();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var entity = await _repo.GetByIdAsync(id);
-            if (entity != null) await _repo.DeleteAsync(entity);
+            await _appService.DeleteAsync(id);
             return Ok();
         }
     }

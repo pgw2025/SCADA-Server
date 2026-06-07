@@ -1,6 +1,7 @@
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Interfaces.Repositories;
 namespace ScadaServer.Application.Services
 {
     public class ConfigLogAppService : IConfigLogAppService

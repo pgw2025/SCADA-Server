@@ -10,6 +10,7 @@ using ScadaServer.Application.DTOs;
 using ScadaServer.Application.Options;
 using ScadaServer.WebApi.Services;
 using ScadaServer.WebApi.Hubs;
+using ScadaServer.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Options;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -31,7 +32,7 @@ builder.Services.AddControllers()
                 .Where(e => e.Value?.Errors.Count > 0)
                 .ToDictionary(
                     kvp => kvp.Key.Replace("$.", "").Replace("dto.", ""), // 清理字段名前缀
-                    kvp => kvp.Value?.Errors.Select(e => 
+                    kvp => kvp.Value?.Errors.Select(e =>
                     {
                         // 转换复杂的 JSON 解析错误为友好的中文提示
                         if (e.ErrorMessage.Contains("could not be converted"))
@@ -56,9 +57,9 @@ builder.Services.AddCors(options =>
                .AllowAnyHeader()
                .AllowCredentials()
                .SetIsOriginAllowedToAllowWildcardSubdomains();
-        
+
         // 如果配置列表中没有，也可以动态允许
-        policy.SetIsOriginAllowed(origin => 
+        policy.SetIsOriginAllowed(origin =>
         {
             if (string.IsNullOrWhiteSpace(origin)) return false;
             // 允许 localhost 和指定的 IP 范围
@@ -93,7 +94,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "ScadaServer API", Version = "v1" });
-    
+
     // 添加 JWT 认证支持
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -127,7 +128,7 @@ builder.Services.AddScoped<ISqlSugarClient>(s =>
     return new SqlSugarScope(new ConnectionConfig()
     {
         ConnectionString = options.GetConnectionString(),
-        DbType = DbType.MySql, 
+        DbType = DbType.MySql,
         IsAutoCloseConnection = true
     });
 });
@@ -136,7 +137,6 @@ builder.Services.AddScoped<ISqlSugarClient>(s =>
 builder.Services.AddScoped<IUnitOfWork, SqlSugarUnitOfWork>();
 
 // 3. Register Repositories
-builder.Services.AddScoped(typeof(IRepository<>), typeof(SqlSugarRepository<>));
 builder.Services.AddScoped<IAlarmRuleRepository, AlarmRuleRepository>();
 builder.Services.AddScoped<IAreaRepository, AreaRepository>();
 builder.Services.AddScoped<IConfigLogRepository, ConfigLogRepository>();
@@ -145,11 +145,9 @@ builder.Services.AddScoped<IDataConversionRepository, DataConversionRepository>(
 builder.Services.AddScoped<IDataModelRepository, DataModelRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<IExposedInterfaceRepository, ExposedInterfaceRepository>();
-builder.Services.AddScoped<IHistoricalRecordRepository, HistoricalRecordRepository>();
 builder.Services.AddScoped<IHmiComponentRepository, HmiComponentRepository>();
 builder.Services.AddScoped<IModelVariableRepository, ModelVariableRepository>();
 builder.Services.AddScoped<IMqttServerRepository, MqttServerRepository>();
-builder.Services.AddScoped<IRealtimeDataRepository, RealtimeDataRepository>();
 builder.Services.AddScoped<IScadaPageRepository, ScadaPageRepository>();
 builder.Services.AddScoped<IScadaProjectRepository, ScadaProjectRepository>();
 builder.Services.AddScoped<IScheduledTaskRepository, ScheduledTaskRepository>();
@@ -175,11 +173,9 @@ builder.Services.AddScoped<IDataConversionAppService, DataConversionAppService>(
 builder.Services.AddScoped<IDataModelAppService, DataModelAppService>();
 builder.Services.AddScoped<IDeviceAppService, DeviceAppService>();
 builder.Services.AddScoped<IExposedInterfaceAppService, ExposedInterfaceAppService>();
-builder.Services.AddScoped<IHistoricalRecordAppService, HistoricalRecordAppService>();
 builder.Services.AddScoped<IHmiComponentAppService, HmiComponentAppService>();
 builder.Services.AddScoped<IModelVariableAppService, ModelVariableAppService>();
 builder.Services.AddScoped<IMqttServerAppService, MqttServerAppService>();
-builder.Services.AddScoped<IRealtimeDataAppService, RealtimeDataAppService>();
 builder.Services.AddScoped<IScadaPageAppService, ScadaPageAppService>();
 builder.Services.AddScoped<IScadaProjectAppService, ScadaProjectAppService>();
 builder.Services.AddScoped<IScheduledTaskAppService, ScheduledTaskAppService>();

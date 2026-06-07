@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ScadaServer.Application.Interfaces;
-using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -8,31 +8,31 @@ namespace ScadaServer.WebApi.Controllers
     [Route("api/[controller]")]
     public class AlarmRuleController : ControllerBase
     {
-        private readonly IRepository<AlarmRule> _ruleRepo;
+        private readonly IAlarmRuleAppService _appService;
 
-        public AlarmRuleController(IRepository<AlarmRule> ruleRepo)
+        public AlarmRuleController(IAlarmRuleAppService appService)
         {
-            _ruleRepo = ruleRepo;
+            _appService = appService;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _ruleRepo.GetListAsync());
+        public async Task<IActionResult> GetAll() => Ok(await _appService.GetListAsync());
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] AlarmRule rule)
+        public async Task<IActionResult> Create([FromBody] AlarmRuleDto dto)
         {
-            await _ruleRepo.InsertAsync(rule);
-            return Ok(rule);
+            await _appService.CreateAsync(dto);
+            return Ok(dto);
         }
 
         [HttpPut("{id}/toggle")]
         public async Task<IActionResult> Toggle(int id, [FromBody] bool enabled)
         {
-            var rule = await _ruleRepo.GetByIdAsync(id);
-            if (rule != null)
+            var dto = await _appService.GetByIdAsync(id);
+            if (dto != null)
             {
-                rule.IsEnabled = enabled;
-                await _ruleRepo.UpdateAsync(rule);
+                dto.IsEnabled = enabled;
+                await _appService.UpdateAsync(dto);
             }
             return Ok();
         }

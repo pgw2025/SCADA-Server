@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ScadaServer.Application.Interfaces;
-using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -9,39 +9,36 @@ namespace ScadaServer.WebApi.Controllers
     public class ScheduledTaskController : ControllerBase
     {
         private readonly IScheduledTaskAppService _appService;
-        private readonly IScheduledTaskRepository _repo;
 
-        public ScheduledTaskController(IScheduledTaskAppService appService, IScheduledTaskRepository repo)
+        public ScheduledTaskController(IScheduledTaskAppService appService)
         {
             _appService = appService;
-            _repo = repo;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _repo.GetListAsync());
+        public async Task<IActionResult> GetAll() => Ok(await _appService.GetListAsync());
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id) => Ok(await _repo.GetByIdAsync(id));
+        public async Task<IActionResult> GetById(int id) => Ok(await _appService.GetByIdAsync(id));
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] ScheduledTask entity)
+        public async Task<IActionResult> Create([FromBody] ScheduledTaskDto dto)
         {
-            await _repo.InsertAsync(entity);
-            return Ok(entity);
+            await _appService.CreateAsync(dto);
+            return Ok(dto);
         }
 
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] ScheduledTask entity)
+        public async Task<IActionResult> Update([FromBody] ScheduledTaskDto dto)
         {
-            await _repo.UpdateAsync(entity);
+            await _appService.UpdateAsync(dto);
             return Ok();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var entity = await _repo.GetByIdAsync(id);
-            if (entity != null) await _repo.DeleteAsync(entity);
+            await _appService.DeleteAsync(id);
             return Ok();
         }
     }

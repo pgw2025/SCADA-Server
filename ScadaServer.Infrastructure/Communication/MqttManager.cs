@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MQTTnet;
 using ScadaServer.Application.Interfaces;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Interfaces.Repositories;
 using System.Collections.Concurrent;
 using System.Text.Json;
 
@@ -63,8 +64,8 @@ namespace ScadaServer.Infrastructure.Communication
             try
             {
                 using var scope = _serviceProvider.CreateScope();
-                var serverRepo = scope.ServiceProvider.GetRequiredService<IRepository<MqttServer>>();
-                var mappingRepo = scope.ServiceProvider.GetRequiredService<IRepository<MqttVariableConfig>>();
+                var serverRepo = scope.ServiceProvider.GetRequiredService<IRepository<MqttServer  , int>>();
+                var mappingRepo = scope.ServiceProvider.GetRequiredService<IRepository<MqttVariableConfig, int>>();
 
                 var servers = await serverRepo.GetListAsync();
                 var mappings = await mappingRepo.GetListAsync(m => m.IsEnabled);

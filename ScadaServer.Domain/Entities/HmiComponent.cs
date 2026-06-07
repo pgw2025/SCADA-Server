@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class HmiComponent
+    [SugarTable("HmiComponents")]
+    public class HmiComponent : EntityBase
     {
-        public int Id { get; set; }
         public int PageId { get; set; }
         public string Type { get; set; }
         public string Name { get; set; }
@@ -12,6 +14,7 @@ namespace ScadaServer.Domain.Entities
         public int Height { get; set; }
         public int ZIndex { get; set; }
         public string BindField { get; set; }
+        [SugarColumn(ColumnDataType = "text")]
         public string PropsJson { get; set; }
     }
 }

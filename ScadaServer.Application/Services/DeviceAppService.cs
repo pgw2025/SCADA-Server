@@ -4,6 +4,7 @@ using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Exceptions;
 using ScadaServer.Domain.Enums;
 using System.Text.Json;
+using ScadaServer.Domain.Interfaces.Repositories;
 
 namespace ScadaServer.Application.Services
 {
@@ -12,29 +13,27 @@ namespace ScadaServer.Application.Services
         private readonly IDeviceRepository _repository;
         private readonly ISensorRepository _sensorRepository;
         private readonly IVariableTriggerRepository _triggerRepository;
-        private readonly IRealtimeDataRepository _realtimeDataRepository;
         private readonly IExposedInterfaceRepository _interfaceRepository;
         private readonly IAreaRepository _areaRepository;
         private readonly IDataModelRepository _modelRepository;
-        private readonly IRepository<DeviceConfig> _configRepository;
+        private readonly IRepository<DeviceConfig, int> _configRepository;
         private readonly IUnitOfWork _uow;
 
         public DeviceAppService(
             IDeviceRepository repository,
             ISensorRepository sensorRepository,
             IVariableTriggerRepository triggerRepository,
-            IRealtimeDataRepository realtimeDataRepository,
+
             IExposedInterfaceRepository interfaceRepository,
             IAreaRepository areaRepository,
             IDataModelRepository modelRepository,
-            IRepository<DeviceConfig> configRepository,
+            IRepository<DeviceConfig, int> configRepository,
             IUnitOfWork uow)
         {
             _repository = repository;
             _sensorRepository = sensorRepository;
             _triggerRepository = triggerRepository;
-            _realtimeDataRepository = realtimeDataRepository;
-            _interfaceRepository = interfaceRepository;
+
             _areaRepository = areaRepository;
             _modelRepository = modelRepository;
             _configRepository = configRepository;
@@ -43,7 +42,7 @@ namespace ScadaServer.Application.Services
 
         public async Task<DeviceDto> GetByIdAsync(int id)
         {
-            var entity = await _repository.GetByIdWithConfigAsync(id);
+            var entity = await _repository.GetByIdAsync(id);
             if (entity == null) return null;
 
             return new DeviceDto
@@ -66,7 +65,7 @@ namespace ScadaServer.Application.Services
 
         public async Task<List<DeviceDto>> GetListAsync()
         {
-            var list = await _repository.GetListWithConfigAsync();
+            var list = await _repository.GetListAsync();
             return list.Select(entity => new DeviceDto
             {
                 Id = entity.Id,
@@ -166,8 +165,8 @@ namespace ScadaServer.Application.Services
             ValidateConfigJson(dto.Type, dto.ConfigJson);
 
             // 5. 设置默认驱动名称
-            var driverName = string.IsNullOrEmpty(dto.DriverName) 
-                ? GetDefaultDriverName(dto.Type) 
+            var driverName = string.IsNullOrEmpty(dto.DriverName)
+                ? GetDefaultDriverName(dto.Type)
                 : dto.DriverName;
 
             await using var transaction = await _uow.BeginTransactionAsync();
@@ -211,7 +210,7 @@ namespace ScadaServer.Application.Services
 
         public async Task<DeviceDto> UpdateAsync(DeviceDto dto)
         {
-            var entity = await _repository.GetByIdWithConfigAsync(dto.Id);
+            var entity = await _repository.GetByIdAsync(dto.Id);
             if (entity == null)
             {
                 throw new BusinessException($"ID 为 {dto.Id} 的设备不存在");
@@ -301,8 +300,7 @@ namespace ScadaServer.Application.Services
                 // 删除级联数据
                 await _sensorRepository.DeleteRangeAsync(s => s.DeviceId == id);
                 await _triggerRepository.DeleteRangeAsync(t => t.DeviceId == id);
-                await _realtimeDataRepository.DeleteRangeAsync(r => r.DeviceId == id);
-                await _interfaceRepository.DeleteRangeAsync(i => i.DeviceId == id);
+
                 await _configRepository.DeleteRangeAsync(c => c.DeviceId == id);
 
                 // 删除设备

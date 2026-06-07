@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ScadaServer.Application.Interfaces;
-using ScadaServer.Domain.Entities;
 using ScadaServer.Application.DTOs;
-using Microsoft.AspNetCore.Identity;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -11,49 +9,41 @@ namespace ScadaServer.WebApi.Controllers
     public class SystemUserController : ControllerBase
     {
         private readonly ISystemUserAppService _appService;
-        private readonly ISystemUserRepository _repo;
 
-        public SystemUserController(ISystemUserAppService appService, ISystemUserRepository repo)
+        public SystemUserController(ISystemUserAppService appService)
         {
             _appService = appService;
-            _repo = repo;
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() => Ok(await _repo.GetListAsync());
+        public async Task<IActionResult> GetAll() => Ok(await _appService.GetListAsync());
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById(int id) => Ok(await _repo.GetByIdAsync(id));
+        public async Task<IActionResult> GetById(int id) => Ok(await _appService.GetByIdAsync(id));
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
         {
-            var passwordHasher = new PasswordHasher<SystemUser>();
-            var user = new SystemUser
+            await _appService.CreateAsync(new SystemUserDto
             {
                 Username = dto.Username,
                 Role = dto.Role,
-                Status = dto.Status,
-                PasswordHash = passwordHasher.HashPassword(new SystemUser(), dto.Password)
-            };
-            
-            await _repo.InsertAsync(user);
+                Status = dto.Status
+            });
             return Ok(new { Success = true, Message = "User created successfully" });
         }
 
-
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] SystemUser entity)
+        public async Task<IActionResult> Update([FromBody] SystemUserDto dto)
         {
-            await _repo.UpdateAsync(entity);
+            await _appService.UpdateAsync(dto);
             return Ok();
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var entity = await _repo.GetByIdAsync(id);
-            if (entity != null) await _repo.DeleteAsync(entity);
+            await _appService.DeleteAsync(id);
             return Ok();
         }
     }

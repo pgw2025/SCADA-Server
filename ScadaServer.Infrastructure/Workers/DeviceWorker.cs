@@ -9,6 +9,7 @@ using ScadaServer.Infrastructure.Services;
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using System.Diagnostics;
+using ScadaServer.Domain.Interfaces.Repositories;
 
 namespace ScadaServer.Infrastructure.Workers
 {
@@ -154,9 +155,9 @@ namespace ScadaServer.Infrastructure.Workers
 
                 using var scope = _serviceProvider.CreateScope();
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
+                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable, int>>();
 
-                var device = await deviceRepo.GetByIdWithConfigAsync(deviceId);
+                var device = await deviceRepo.GetByIdAsync(deviceId);
                 if (device == null)
                 {
                     _registry.RemoveDevice(deviceId);
@@ -190,9 +191,9 @@ namespace ScadaServer.Infrastructure.Workers
             {
                 using var scope = _serviceProvider.CreateScope();
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
+                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable, int>>();
 
-                var devices = await deviceRepo.GetListWithConfigAsync();
+                var devices = await deviceRepo.GetListAsync();
                 var activeDeviceIds = devices.Select(d => d.Id).ToHashSet();
 
                 // 批量加载所有变量

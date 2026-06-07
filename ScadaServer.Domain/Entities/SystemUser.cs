@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class SystemUser
+    [SugarTable("SystemUsers")]
+    public class SystemUser : EntityBase
     {
-        public int Id { get; set; }
         public string Username { get; set; }
         public string PasswordHash { get; set; }
         public string Role { get; set; }

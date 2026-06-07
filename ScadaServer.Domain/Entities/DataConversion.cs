@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class DataConversion
+    [SugarTable("DataConversions")]
+    public class DataConversion : EntityBase
     {
-        public int Id { get; set; }
         public string Name { get; set; }
         public int SourceDeviceId { get; set; }
         public string SourceVariableKey { get; set; }

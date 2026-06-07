@@ -1,9 +1,12 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class SystemScript
+    [SugarTable("SystemScripts")]
+    public class SystemScript : EntityBase
     {
-        public int Id { get; set; }
         public string Name { get; set; }
+        [SugarColumn(ColumnDataType = "text")]
         public string Code { get; set; }
         public string TriggerType { get; set; }
         public int? IntervalSeconds { get; set; }

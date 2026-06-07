@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class DatabaseConfig
+    [SugarTable("DatabaseConfigs")]
+    public class DatabaseConfig : EntityBase
     {
-        public int Id { get; set; }
         public string Name { get; set; }
         public string Type { get; set; }
         public string BackendType { get; set; }

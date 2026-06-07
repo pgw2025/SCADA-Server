@@ -1,11 +1,15 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class ScadaProject
+    [SugarTable("ScadaProjects")]
+    public class ScadaProject : EntityBase
     {
-        public int Id { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
         public DateTime CreatedAt { get; set; }
+
+        [SugarColumn(IsIgnore = true)]
         public List<ScadaPage> Pages { get; set; }
     }
 }

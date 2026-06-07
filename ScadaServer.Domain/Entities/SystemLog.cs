@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class SystemLog
+    [SugarTable("SystemLogs")]
+    public class SystemLog : EntityBase
     {
-        public int Id { get; set; }
         public DateTime Timestamp { get; set; }
         public string Level { get; set; }
         public string Source { get; set; }

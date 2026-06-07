@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class Area
+    [SugarTable("Areas")]
+    public class Area : EntityBase
     {
-        public int Id { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
     }

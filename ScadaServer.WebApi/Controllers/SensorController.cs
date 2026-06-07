@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ScadaServer.Application.Interfaces;
-using ScadaServer.Domain.Entities;
+using ScadaServer.Application.DTOs;
 
 namespace ScadaServer.WebApi.Controllers
 {
@@ -8,25 +8,25 @@ namespace ScadaServer.WebApi.Controllers
     [Route("api/[controller]")]
     public class SensorController : ControllerBase
     {
-        private readonly IRepository<Sensor> _sensorRepo;
+        private readonly ISensorAppService _appService;
 
-        public SensorController(IRepository<Sensor> sensorRepo)
+        public SensorController(ISensorAppService appService)
         {
-            _sensorRepo = sensorRepo;
+            _appService = appService;
         }
 
         [HttpGet("device/{deviceId}")]
         public async Task<IActionResult> GetByDevice(int deviceId)
         {
-            var list = await _sensorRepo.GetListAsync();
+            var list = await _appService.GetListAsync();
             return Ok(list.Where(s => s.DeviceId == deviceId));
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddSensor([FromBody] Sensor sensor)
+        public async Task<IActionResult> AddSensor([FromBody] SensorDto dto)
         {
-            await _sensorRepo.InsertAsync(sensor);
-            return Ok(sensor);
+            await _appService.CreateAsync(dto);
+            return Ok(dto);
         }
     }
 }

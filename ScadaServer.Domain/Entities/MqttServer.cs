@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class MqttServer
+    [SugarTable("MqttServers")]
+    public class MqttServer : EntityBase
     {
-        public int Id { get; set; }
         public string Name { get; set; }
         public string BrokerUrl { get; set; }
         public int Port { get; set; }

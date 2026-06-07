@@ -1,8 +1,10 @@
+using SqlSugar;
+
 namespace ScadaServer.Domain.Entities
 {
-    public class AlarmRule
+    [SugarTable("AlarmRules")]
+    public class AlarmRule : EntityBase
     {
-        public int Id { get; set; }
         public int SensorId { get; set; }
         public string Condition { get; set; }
         public double Threshold { get; set; }
