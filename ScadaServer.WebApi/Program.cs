@@ -1,244 +1,29 @@
-using SqlSugar;
-using ScadaServer.Application.Interfaces;
-using ScadaServer.Application.Services;
-using ScadaServer.Infrastructure.Persistence;
-using ScadaServer.Infrastructure.Repositories;
-using ScadaServer.Infrastructure.Communication;
-
-using ScadaServer.Application.DTOs;
 using ScadaServer.Application.Options;
-using ScadaServer.WebApi.Services;
-using ScadaServer.WebApi.Hubs;
-using ScadaServer.Domain.Interfaces.Repositories;
-using ScadaServer.Domain.Entities;
-using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
-using Microsoft.OpenApi.Models;
-using ScadaServer.Runtime;
+using ScadaServer.WebApi.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// 配置系统数据库选项
 builder.Services.Configure<SystemDbOptions>(builder.Configuration.GetSection(SystemDbOptions.SectionName));
-builder.Services.AddControllers()
-    .ConfigureApiBehaviorOptions(options =>
-    {
-        options.InvalidModelStateResponseFactory = context =>
-        {
-            var errors = context.ModelState
-                .Where(e => e.Value?.Errors.Count > 0)
-                .ToDictionary(
-                    kvp => kvp.Key.Replace("$.", "").Replace("dto.", ""), // 清理字段名前缀
-                    kvp => kvp.Value?.Errors.Select(e =>
-                    {
-                        // 转换复杂的 JSON 解析错误为友好的中文提示
-                        if (e.ErrorMessage.Contains("could not be converted"))
-                            return "数据格式或类型不正确";
-                        return e.ErrorMessage;
-                    }).ToList()
-                );
 
-            var result = ApiResponse.Fail("数据校验失败", errors);
-            return new BadRequestObjectResult(result);
-        };
-    });
+// 添加认证服务（JWT + CORS + Swagger + Controllers）
+builder.Services.AddAuthenticationServices(builder.Configuration);
 
-// Add CORS policy
-builder.Services.AddCors(options =>
-{
-    var allowedOrigins = builder.Configuration.GetSection("AllowedCorsOrigins").Get<string[]>() ?? Array.Empty<string>();
-    options.AddPolicy("AllowSpecificOrigins", policy =>
-    {
-        policy.WithOrigins(allowedOrigins)
-               .AllowAnyMethod()
-               .AllowAnyHeader()
-               .AllowCredentials()
-               .SetIsOriginAllowedToAllowWildcardSubdomains();
+// 添加数据库服务（SqlSugar + UnitOfWork + Repositories）
+builder.Services.AddDatabaseServices();
 
-        // 如果配置列表中没有，也可以动态允许
-        policy.SetIsOriginAllowed(origin =>
-        {
-            if (string.IsNullOrWhiteSpace(origin)) return false;
-            // 允许 localhost 和指定的 IP 范围
-            return origin.Contains("localhost") || origin.Contains("127.0.0.1") || origin.Contains("100.88.88.");
-        });
-    });
-});
+// 添加应用层服务
+builder.Services.AddApplicationServices();
 
-// JWT Authentication Configuration
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "SUPER_SECRET_KEY_FOR_SCADA_SERVER_12345";
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
-    };
-});
-
-builder.Services.AddSignalR();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "ScadaServer API", Version = "v1" });
-
-    // 添加 JWT 认证支持
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
-    });
-
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new string[] {}
-        }
-    });
-});
-
-// 1. Register SqlSugar (Scoped)
-builder.Services.AddScoped<ISqlSugarClient>(s =>
-{
-    var options = s.GetRequiredService<IOptions<SystemDbOptions>>().Value;
-    return new SqlSugarScope(new ConnectionConfig()
-    {
-        ConnectionString = options.GetConnectionString(),
-        DbType = DbType.MySql,
-        IsAutoCloseConnection = true
-    });
-});
-
-// 2. Register Unit of Work
-builder.Services.AddScoped<IUnitOfWork, SqlSugarUnitOfWork>();
-
-// 3. Register Repositories
-builder.Services.AddScoped<IAlarmRuleRepository, AlarmRuleRepository>();
-builder.Services.AddScoped<IAreaRepository, AreaRepository>();
-builder.Services.AddScoped<IConfigLogRepository, ConfigLogRepository>();
-builder.Services.AddScoped<IDatabaseConfigRepository, DatabaseConfigRepository>();
-builder.Services.AddScoped<IDataConversionRepository, DataConversionRepository>();
-builder.Services.AddScoped<IDataModelRepository, DataModelRepository>();
-builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
-builder.Services.AddScoped<IRepository<DeviceConfig, int>, DeviceConfigRepository>();
-builder.Services.AddScoped<IExposedInterfaceRepository, ExposedInterfaceRepository>();
-builder.Services.AddScoped<IHmiComponentRepository, HmiComponentRepository>();
-builder.Services.AddScoped<IModelVariableRepository, ModelVariableRepository>();
-builder.Services.AddScoped<IMqttServerRepository, MqttServerRepository>();
-builder.Services.AddScoped<IRepository<MqttVariableConfig, int>, MqttVariableConfigRepository>();
-builder.Services.AddScoped<IScadaPageRepository, ScadaPageRepository>();
-builder.Services.AddScoped<IScadaProjectRepository, ScadaProjectRepository>();
-builder.Services.AddScoped<IScheduledTaskRepository, ScheduledTaskRepository>();
-builder.Services.AddScoped<ISensorRepository, SensorRepository>();
-builder.Services.AddScoped<ISystemConfigRepository, SystemConfigRepository>();
-builder.Services.AddScoped<ISystemLogRepository, SystemLogRepository>();
-builder.Services.AddScoped<ISystemScriptRepository, SystemScriptRepository>();
-builder.Services.AddScoped<ISystemUserRepository, SystemUserRepository>();
-builder.Services.AddScoped<IVariableTriggerRepository, VariableTriggerRepository>();
-
-builder.Services.AddSingleton<DeviceRegistry>();
-builder.Services.AddSingleton<IProtocolDriverFactory, ProtocolDriverFactory>();
-builder.Services.AddSingleton<ScadaServer.Infrastructure.Configuration.DatabaseConfigManager>();
-builder.Services.AddSingleton<ScadaServer.Infrastructure.Services.SystemMonitorService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<ScadaServer.Infrastructure.Services.SystemMonitorService>());
-
-// 4. Register Application Services
-builder.Services.AddScoped<IAlarmRuleAppService, AlarmRuleAppService>();
-builder.Services.AddScoped<IAreaAppService, AreaAppService>();
-builder.Services.AddScoped<IConfigLogAppService, ConfigLogAppService>();
-builder.Services.AddScoped<IDatabaseConfigAppService, DatabaseConfigAppService>();
-builder.Services.AddScoped<IDataConversionAppService, DataConversionAppService>();
-builder.Services.AddScoped<IDataModelAppService, DataModelAppService>();
-builder.Services.AddScoped<IDeviceAppService, DeviceAppService>();
-builder.Services.AddScoped<DatabaseInitializer>();
-builder.Services.AddScoped<IExposedInterfaceAppService, ExposedInterfaceAppService>();
-builder.Services.AddScoped<IHmiComponentAppService, HmiComponentAppService>();
-builder.Services.AddScoped<IModelVariableAppService, ModelVariableAppService>();
-builder.Services.AddScoped<IMqttServerAppService, MqttServerAppService>();
-builder.Services.AddScoped<IScadaPageAppService, ScadaPageAppService>();
-builder.Services.AddScoped<IScadaProjectAppService, ScadaProjectAppService>();
-builder.Services.AddScoped<IScheduledTaskAppService, ScheduledTaskAppService>();
-builder.Services.AddScoped<ISensorAppService, SensorAppService>();
-builder.Services.AddScoped<ISystemConfigAppService, SystemConfigAppService>();
-builder.Services.AddScoped<ISystemLogAppService, SystemLogAppService>();
-builder.Services.AddScoped<ISystemScriptAppService, SystemScriptAppService>();
-builder.Services.AddScoped<ISystemUserAppService, SystemUserAppService>();
-builder.Services.AddScoped<IVariableTriggerAppService, VariableTriggerAppService>();
-
-builder.Services.AddSingleton<IMqttManager, MqttManager>();
-builder.Services.AddSingleton<IScadaNotificationService, SignalRNotificationService>();
-
-
-// 注册 RuntimeManager（Runtime项目）
-// 注册 RuntimeManager（Runtime项目）- 需要先添加 using 引用
-builder.Services.AddSingleton<RuntimeManager>();
-
-// 注册 RuntimeHostedService
-builder.Services.AddHostedService<ScadaServer.WebApi.HostedServices.RuntimeHostedService>();
-
-
+// 添加基础设施服务（设备注册、协议工厂、Runtime等）
+builder.Services.AddInfrastructureServices();
 
 var app = builder.Build();
 
-// 1. 确保 CORS 最先处理，包括处理 OPTIONS 预检请求
-app.UseCors("AllowSpecificOrigins");
+// 配置中间件管道
+app.ConfigureMiddlewarePipeline();
 
-// 自动初始化数据库表结构
-// 程序启动时执行数据库初始化
-using (var scope = app.Services.CreateScope())
-{
-    var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
-    await initializer.InitializeAsync();
-}
-
-
-// 初始化 MQTT 管理器
-var mqttManager = app.Services.GetRequiredService<IMqttManager>();
-await mqttManager.StartAsync();
-
-// Use Custom Global Exception Middleware
-app.UseMiddleware<ScadaServer.WebApi.Middlewares.ExceptionMiddleware>();
-
-// 始终启用 Swagger
-app.UseSwagger();
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ScadaServer API v1");
-    c.RoutePrefix = string.Empty; // 这会让 Swagger 成为首页
-});
-
-// app.UseHttpsRedirection();
-
-app.UseRouting();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-app.MapHub<ScadaHub>("/hubs/scada");
+// 执行启动初始化（数据库初始化、MQTT启动等）
+await app.InitializeAsync();
 
 app.Run();
