@@ -1,5 +1,6 @@
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Enums;
+using ScadaServer.Domain.Interfaces;
 
 namespace ScadaServer.Infrastructure.Communication
 {

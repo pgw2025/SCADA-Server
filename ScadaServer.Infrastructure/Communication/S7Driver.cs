@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using S7.Net;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Interfaces;
 
 namespace ScadaServer.Infrastructure.Communication
 {

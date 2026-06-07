@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Interfaces;
 using Opc.Ua;
 using Opc.Ua.Client;
 

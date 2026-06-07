@@ -4,8 +4,7 @@ using ScadaServer.Application.Services;
 using ScadaServer.Infrastructure.Persistence;
 using ScadaServer.Infrastructure.Repositories;
 using ScadaServer.Infrastructure.Communication;
-using ScadaServer.Infrastructure.Workers;
-using ScadaServer.Infrastructure.Services;
+
 using ScadaServer.Application.DTOs;
 using ScadaServer.Application.Options;
 using ScadaServer.WebApi.Services;
@@ -13,12 +12,12 @@ using ScadaServer.WebApi.Hubs;
 using ScadaServer.Domain.Interfaces.Repositories;
 using ScadaServer.Domain.Entities;
 using Microsoft.Extensions.Options;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using ScadaServer.Runtime;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -164,8 +163,8 @@ builder.Services.AddScoped<IVariableTriggerRepository, VariableTriggerRepository
 builder.Services.AddSingleton<DeviceRegistry>();
 builder.Services.AddSingleton<IProtocolDriverFactory, ProtocolDriverFactory>();
 builder.Services.AddSingleton<ScadaServer.Infrastructure.Configuration.DatabaseConfigManager>();
-builder.Services.AddSingleton<SystemMonitorService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<SystemMonitorService>());
+builder.Services.AddSingleton<ScadaServer.Infrastructure.Services.SystemMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ScadaServer.Infrastructure.Services.SystemMonitorService>());
 
 // 4. Register Application Services
 builder.Services.AddScoped<IAlarmRuleAppService, AlarmRuleAppService>();
@@ -193,9 +192,13 @@ builder.Services.AddScoped<IVariableTriggerAppService, VariableTriggerAppService
 builder.Services.AddSingleton<IMqttManager, MqttManager>();
 builder.Services.AddSingleton<IScadaNotificationService, SignalRNotificationService>();
 
-// 5. Register Background Worker
-builder.Services.AddHostedService<DeviceWorker>();
 
+// 注册 RuntimeManager（Runtime项目）
+// 注册 RuntimeManager（Runtime项目）- 需要先添加 using 引用
+builder.Services.AddSingleton<RuntimeManager>();
+
+// 注册 RuntimeHostedService
+builder.Services.AddHostedService<ScadaServer.WebApi.HostedServices.RuntimeHostedService>();
 
 
 
