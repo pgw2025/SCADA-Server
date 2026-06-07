@@ -2,9 +2,6 @@ using SqlSugar;
 
 namespace ScadaServer.Infrastructure.DBEntities
 {
-    /// <summary>
-    /// 设备协议配置数据库实体
-    /// </summary>
     [SugarTable("DeviceConfigs")]
     public class DeviceConfigDbEntity
     {

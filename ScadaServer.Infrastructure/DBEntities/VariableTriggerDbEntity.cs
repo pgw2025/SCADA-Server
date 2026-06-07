@@ -2,9 +2,6 @@ using SqlSugar;
 
 namespace ScadaServer.Infrastructure.DBEntities
 {
-    /// <summary>
-    /// 变量触发器数据库实体
-    /// </summary>
     [SugarTable("VariableTriggers")]
     public class VariableTriggerDbEntity
     {

@@ -1,5 +1,6 @@
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
+using ScadaServer.Domain.Interfaces;
 
 namespace ScadaServer.Application.Interfaces
 {

@@ -12,7 +12,7 @@ namespace ScadaServer.Application.Services
         {
             // For composite keys, we might need a custom method in repository or use Queryable
             // Assuming the repository handles it if we pass an anonymous object or array
-            var entity = await _repository.GetByIdAsync(new { DeviceId = deviceId, VariableKey = variableKey });
+            var entity = await _repository.GetByIdAsync(deviceId, variableKey);
             if (entity == null) return null;
             return new RealtimeDataDto
             {
@@ -49,7 +49,7 @@ namespace ScadaServer.Application.Services
 
         public async Task UpdateAsync(RealtimeDataDto dto)
         {
-            var entity = await _repository.GetByIdAsync(new { DeviceId = dto.DeviceId, VariableKey = dto.VariableKey });
+            var entity = await ((RealtimeDataRepository)_repository).GetByIdAsync(dto.DeviceId, dto.VariableKey);
             if (entity != null)
             {
                 entity.Value = dto.Value;
@@ -60,7 +60,7 @@ namespace ScadaServer.Application.Services
 
         public async Task DeleteAsync(int deviceId, string variableKey)
         {
-            var entity = await _repository.GetByIdAsync(new { DeviceId = deviceId, VariableKey = variableKey });
+            var entity = await _repository.GetByIdAsync(deviceId, variableKey);
             if (entity != null)
             {
                 await _repository.DeleteAsync(entity);

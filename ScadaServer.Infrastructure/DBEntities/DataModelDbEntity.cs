@@ -3,9 +3,6 @@ using ScadaServer.Domain.Enums;
 
 namespace ScadaServer.Infrastructure.DBEntities
 {
-    /// <summary>
-    /// 变量模型数据库实体
-    /// </summary>
     [SugarTable("DataModels")]
     public class DataModelDbEntity
     {

@@ -49,7 +49,7 @@ namespace ScadaServer.Application.Services
 
         public async Task UpdateAsync(HistoricalRecordDto dto)
         {
-            var entity = await _repository.GetByIdAsync(dto.Id);
+            var entity = await ((HistoricalRecordRepository)_repository).GetByIdAsync(dto.Id);
             if (entity != null)
             {
                 entity.DeviceId = dto.DeviceId;

@@ -1,12 +1,13 @@
-using ScadaServer.Domain.Entities;
-using ScadaServer.Application.DTOs;
 using System.Linq.Expressions;
 
-namespace ScadaServer.Application.Interfaces
+namespace ScadaServer.Domain.Interfaces
 {
-    public interface IRepository<T> where T : class, new()
+    /// <summary>
+    /// Base repository interface for entities with a specific key type.
+    /// </summary>
+    public interface IRepository<T, TKey> where T : class, new()
     {
-        Task<T> GetByIdAsync(dynamic id);
+        Task<T> GetByIdAsync(TKey id);
         Task<List<T>> GetListAsync();
         Task<List<T>> GetListAsync(Expression<Func<T, bool>> predicate);
         Task InsertAsync(T entity);
@@ -16,4 +17,3 @@ namespace ScadaServer.Application.Interfaces
         Task<bool> AnyAsync(Expression<Func<T, bool>> predicate);
     }
 }
-
