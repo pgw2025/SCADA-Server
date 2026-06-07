@@ -11,46 +11,88 @@ namespace ScadaServer.Domain.Entities
     {
         [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
         public int Id { get; set; }
-        public string Name { get; set; }
+
         /// <summary>
-        /// 唯一键
+        /// 设备名称
         /// </summary>
-        [SugarColumn(ColumnDescription = "唯一键")]
-        public string Key { get; set; }
-        
+        [SugarColumn(Length = 100, IsNullable = false)]
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 唯一键（用于运行时快速查找）
+        /// </summary>
+        [SugarColumn(Length = 100, IsNullable = false, ColumnDescription = "唯一键")]
+        public string Key { get; set; } = string.Empty;
+
+        /// <summary>
+        /// 所属区域ID
+        /// </summary>
         public int AreaId { get; set; }
+
         /// <summary>
         /// 关联区域
         /// </summary>
         [Navigate(NavigateType.OneToOne, nameof(AreaId))]
-        public Area Area { get; set; }
+        public Area? Area { get; set; }
 
+        /// <summary>
+        /// 关联变量模型ID
+        /// </summary>
         public int ModelId { get; set; }
+
         /// <summary>
         /// 关联变量模型
         /// </summary>
         [Navigate(NavigateType.OneToOne, nameof(ModelId))]
-        public DataModel Model { get; set; }
+        public DataModel? Model { get; set; }
 
         /// <summary>
-        /// 类型：OPCUA/S7/MQTT 等
+        /// 设备类型（枚举）
         /// </summary>
-        public string Type { get; set; }
-        public string IpAddress { get; set; }
-        public int? Port { get; set; }
-        public DeviceStatus Status { get; set; }
-        
-        // S7 协议特定
-        public string CpuType { get; set; }
-        public int? Rack { get; set; }
-        public int? Slot { get; set; }
+        public DeviceType Type { get; set; }
 
-        public DateTime LastUpdated { get; set; }
+        /// <summary>
+        /// 是否启用采集
+        /// </summary>
+        public bool IsEnabled { get; set; } = true;
+
+        /// <summary>
+        /// 采集周期（毫秒）
+        /// 高速PLC: 100ms, 普通PLC: 500ms, 仪表: 5000ms
+        /// </summary>
+        public int PollingInterval { get; set; } = 1000;
+
+        /// <summary>
+        /// 驱动名称（用于驱动工厂创建实例）
+        /// </summary>
+        [SugarColumn(Length = 100)]
+        public string? DriverName { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// 配置更新时间
+        /// </summary>
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// 最后一次通信时间（仅记录，不用于运行时状态）
+        /// </summary>
+        public DateTime? LastCommunicationTime { get; set; }
+
+        /// <summary>
+        /// 协议配置（一对一）
+        /// </summary>
+        [Navigate(NavigateType.OneToOne, nameof(Id), nameof(DeviceConfig.DeviceId))]
+        public DeviceConfig? Config { get; set; }
 
         /// <summary>
         /// 该设备下的触发器
         /// </summary>
         [Navigate(NavigateType.OneToMany, nameof(VariableTrigger.DeviceId))]
-        public List<VariableTrigger> Triggers { get; set; }
+        public List<VariableTrigger>? Triggers { get; set; }
     }
 }

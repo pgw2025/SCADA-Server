@@ -2,6 +2,7 @@ using ScadaServer.Application.Interfaces;
 using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Exceptions;
+using ScadaServer.Domain.Enums;
 
 namespace ScadaServer.Application.Services
 {
@@ -13,12 +14,12 @@ namespace ScadaServer.Application.Services
         private readonly IUnitOfWork _uow;
 
         public DataModelAppService(
-            IDataModelRepository repository, 
-            IModelVariableRepository variableRepository, 
+            IDataModelRepository repository,
+            IModelVariableRepository variableRepository,
             IDeviceRepository deviceRepository,
-            IUnitOfWork uow) 
-        { 
-            _repository = repository; 
+            IUnitOfWork uow)
+        {
+            _repository = repository;
             _variableRepository = variableRepository;
             _deviceRepository = deviceRepository;
             _uow = uow;
@@ -34,7 +35,7 @@ namespace ScadaServer.Application.Services
         public async Task<List<DataModelDto>> GetListAsync()
         {
             var list = await _repository.GetListAsync();
-            return list.Select(entity => MapToDto(entity)).ToList();
+            return list.Select(MapToDto).ToList();
         }
 
         private DataModelDto MapToDto(DataModel entity)
@@ -71,25 +72,24 @@ namespace ScadaServer.Application.Services
         {
             // 0. 规范化：修剪空格
             dto.Name = dto.Name?.Trim();
-            dto.Type = dto.Type?.Trim();
 
-            // 1. 兜底校验：防止绕过 DTO 正则
-            var allowedTypes = new[] { "S7", "OPCUA", "MQTT", "Virtual" };
-            if (!allowedTypes.Contains(dto.Type))
-            {
-                throw new BusinessException($"不支持的模型类型 '{dto.Type}'。合法值为：S7, OPCUA, MQTT, Virtual");
-            }
-
-            // 2. 业务校验：名称唯一性
+            // 1. 业务校验：名称唯一性
             var existing = await _repository.GetListAsync(m => m.Name == dto.Name);
             if (existing.Any())
             {
                 throw new BusinessException($"数据模型名称 '{dto.Name}' 已存在");
             }
 
-            var entity = new DataModel { Name = dto.Name, Description = dto.Description?.Trim(), Type = dto.Type };
+            var entity = new DataModel
+            {
+                Name = dto.Name,
+                Description = dto.Description?.Trim(),
+                Type = dto.Type,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
             await _repository.InsertAsync(entity);
-            
+
             return MapToDto(entity);
         }
 
@@ -97,14 +97,6 @@ namespace ScadaServer.Application.Services
         {
             // 0. 规范化：修剪空格
             dto.Name = dto.Name?.Trim();
-            dto.Type = dto.Type?.Trim();
-
-            // 1. 兜底校验
-            var allowedTypes = new[] { "S7", "OPCUA", "MQTT", "Virtual" };
-            if (!allowedTypes.Contains(dto.Type))
-            {
-                throw new BusinessException($"不支持的模型类型 '{dto.Type}'。合法值为：S7, OPCUA, MQTT, Virtual");
-            }
 
             var entity = await _repository.GetByIdAsync(dto.Id);
             if (entity == null)
@@ -112,7 +104,7 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"ID 为 {dto.Id} 的数据模型不存在");
             }
 
-            // 2. 协议类型锁定保护
+            // 1. 协议类型锁定保护
             if (entity.Type != dto.Type)
             {
                 // 如果模型类型发生变化，检查是否有设备正在使用此模型
@@ -123,7 +115,7 @@ namespace ScadaServer.Application.Services
                 }
             }
 
-            // 3. 业务校验：名称不能与其他模型重复
+            // 2. 业务校验：名称不能与其他模型重复
             var existing = await _repository.GetListAsync(m => m.Name == dto.Name && m.Id != dto.Id);
             if (existing.Any())
             {
@@ -133,6 +125,7 @@ namespace ScadaServer.Application.Services
             entity.Name = dto.Name;
             entity.Description = dto.Description?.Trim();
             entity.Type = dto.Type;
+            entity.UpdatedAt = DateTime.Now;
             await _repository.UpdateAsync(entity);
 
             return MapToDto(entity);
@@ -143,7 +136,7 @@ namespace ScadaServer.Application.Services
             var entity = await _repository.GetByIdAsync(id);
             if (entity == null)
             {
-                return; // 或者 throw new BusinessException("...");
+                return;
             }
 
             // 1. 安全检查：如果已有设备引用此模型，禁止删除
@@ -153,18 +146,14 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException($"无法删除模型 '{entity.Name}'，因为已有设备正在使用此模型。请先删除相关设备。");
             }
 
-            // 2. 利用 IAsyncDisposable 的自动回滚机制，使代码更清爽
+            // 2. 利用 IAsyncDisposable 的自动回滚机制
             await using var transaction = await _uow.BeginTransactionAsync();
 
-            // 清理属于该模型的变量定义
-            // await _variableRepository.DeleteRangeAsync(v => v.ModelId == id);
-    
             // 删除模型本身
             await _repository.DeleteAsync(entity);
 
-            // 显式提交，若未走到这一步（中途报错），transaction 销毁时会自动回滚
+            // 显式提交
             await transaction.CommitAsync();
         }
     }
 }
-

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 using Opc.Ua;
 using Opc.Ua.Client;
@@ -10,12 +12,22 @@ namespace ScadaServer.Infrastructure.Communication
         private readonly Dictionary<int, Subscription> _subscriptions = new();
         private readonly List<MonitoredItem> _monitoredItems = new();
 
-        public async Task<bool> ConnectAsync(Device device)
+        public async Task<bool> ConnectAsync(Device device, string configJson)
         {
-            var endpointUrl = device.IpAddress; // Assumed to be opc.tcp://...
-            if (!endpointUrl.StartsWith("opc.tcp://")) endpointUrl = $"opc.tcp://{endpointUrl}:{device.Port ?? 4840}";
+            // 从 JSON 反序列化配置
+            var config = JsonSerializer.Deserialize<OpcUaConfig>(configJson);
+            if (config == null)
+            {
+                throw new ArgumentException("无效的 OPC UA 协议配置");
+            }
 
-            var config = new ApplicationConfiguration()
+            var endpointUrl = config.EndpointUrl;
+            if (!endpointUrl.StartsWith("opc.tcp://"))
+            {
+                endpointUrl = $"opc.tcp://{endpointUrl}";
+            }
+
+            var appConfig = new ApplicationConfiguration()
             {
                 ApplicationName = "ScadaServer",
                 ApplicationType = ApplicationType.Client,
@@ -27,15 +39,31 @@ namespace ScadaServer.Infrastructure.Communication
             using (var discoveryClient = DiscoveryClient.Create(new Uri(endpointUrl)))
             {
                 var endpoints = discoveryClient.GetEndpoints(null);
-                selectedEndpoint = endpoints.FirstOrDefault(e => e.SecurityMode == MessageSecurityMode.None) ?? endpoints.FirstOrDefault();
+                
+                // 根据配置的安全策略选择端点
+                if (config.SecurityPolicy?.Equals("None", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    selectedEndpoint = endpoints.FirstOrDefault(e => e.SecurityMode == MessageSecurityMode.None) ?? endpoints.FirstOrDefault();
+                }
+                else
+                {
+                    selectedEndpoint = endpoints.FirstOrDefault() ?? throw new Exception("未找到可用的 OPC UA 端点");
+                }
             }
 
             if (selectedEndpoint == null) return false;
 
-            var endpointConfiguration = EndpointConfiguration.Create(config);
+            var endpointConfiguration = EndpointConfiguration.Create(appConfig);
             var managedEndpoint = new ConfiguredEndpoint(null, selectedEndpoint, endpointConfiguration);
 
-            _session = await Session.Create(config, managedEndpoint, false, "ScadaServer", 60000, null, null);
+            // 支持用户名密码认证
+            IUserIdentity identity = null;
+            if (!string.IsNullOrEmpty(config.Username) && !string.IsNullOrEmpty(config.Password))
+            {
+                identity = new UserIdentity(config.Username, System.Text.Encoding.UTF8.GetBytes(config.Password));
+            }
+
+            _session = await Session.Create(appConfig, managedEndpoint, false, "ScadaServer", 60000, identity, new List<string>());
             return _session.Connected;
         }
 
@@ -51,7 +79,13 @@ namespace ScadaServer.Infrastructure.Communication
             var results = new Dictionary<string, object>();
             if (_session == null || !_session.Connected) return results;
 
-            var nodesToRead = new ReadValueIdCollection(variables.Select(v => new ReadValueId { NodeId = v.Address, AttributeId = Attributes.Value }));
+            var nodesToRead = new ReadValueIdCollection(
+                variables.Select(v => new ReadValueId 
+                { 
+                    NodeId = v.Address, 
+                    AttributeId = Attributes.Value 
+                }));
+            
             var response = await _session.ReadAsync(
                 null,
                 0,

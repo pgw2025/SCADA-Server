@@ -3,6 +3,8 @@ using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 using ScadaServer.Domain.Exceptions;
 using ScadaServer.Domain.Enums;
+using System.Text.Json;
+
 namespace ScadaServer.Application.Services
 {
     public class DeviceAppService : IDeviceAppService
@@ -14,6 +16,7 @@ namespace ScadaServer.Application.Services
         private readonly IExposedInterfaceRepository _interfaceRepository;
         private readonly IAreaRepository _areaRepository;
         private readonly IDataModelRepository _modelRepository;
+        private readonly IRepository<DeviceConfig> _configRepository;
         private readonly IUnitOfWork _uow;
 
         public DeviceAppService(
@@ -24,6 +27,7 @@ namespace ScadaServer.Application.Services
             IExposedInterfaceRepository interfaceRepository,
             IAreaRepository areaRepository,
             IDataModelRepository modelRepository,
+            IRepository<DeviceConfig> configRepository,
             IUnitOfWork uow)
         {
             _repository = repository;
@@ -33,13 +37,15 @@ namespace ScadaServer.Application.Services
             _interfaceRepository = interfaceRepository;
             _areaRepository = areaRepository;
             _modelRepository = modelRepository;
+            _configRepository = configRepository;
             _uow = uow;
         }
 
         public async Task<DeviceDto> GetByIdAsync(int id)
         {
-            var entity = await _repository.GetByIdAsync(id);
+            var entity = await _repository.GetByIdWithConfigAsync(id);
             if (entity == null) return null;
+
             return new DeviceDto
             {
                 Id = entity.Id,
@@ -48,19 +54,19 @@ namespace ScadaServer.Application.Services
                 AreaId = entity.AreaId,
                 ModelId = entity.ModelId,
                 Type = entity.Type,
-                IpAddress = entity.IpAddress,
-                Port = entity.Port,
-                Status = entity.Status,
-                CpuType = entity.CpuType,
-                Rack = entity.Rack,
-                Slot = entity.Slot,
-                LastUpdated = entity.LastUpdated
+                IsEnabled = entity.IsEnabled,
+                PollingInterval = entity.PollingInterval,
+                DriverName = entity.DriverName,
+                CreatedAt = entity.CreatedAt,
+                UpdatedAt = entity.UpdatedAt,
+                LastCommunicationTime = entity.LastCommunicationTime,
+                ConfigJson = entity.Config?.JsonConfig
             };
         }
 
         public async Task<List<DeviceDto>> GetListAsync()
         {
-            var list = await _repository.GetListAsync();
+            var list = await _repository.GetListWithConfigAsync();
             return list.Select(entity => new DeviceDto
             {
                 Id = entity.Id,
@@ -69,40 +75,64 @@ namespace ScadaServer.Application.Services
                 AreaId = entity.AreaId,
                 ModelId = entity.ModelId,
                 Type = entity.Type,
-                IpAddress = entity.IpAddress,
-                Port = entity.Port,
-                Status = entity.Status,
-                CpuType = entity.CpuType,
-                Rack = entity.Rack,
-                Slot = entity.Slot,
-                LastUpdated = entity.LastUpdated
+                IsEnabled = entity.IsEnabled,
+                PollingInterval = entity.PollingInterval,
+                DriverName = entity.DriverName,
+                CreatedAt = entity.CreatedAt,
+                UpdatedAt = entity.UpdatedAt,
+                LastCommunicationTime = entity.LastCommunicationTime,
+                ConfigJson = entity.Config?.JsonConfig
             }).ToList();
         }
 
-        private static readonly HashSet<string> ValidCpuTypes = new() { "S71200", "S71500", "S7300", "S7400" };
-
-        private void ValidateCpuType(string type, string cpuType)
+        /// <summary>
+        /// 验证协议配置 JSON 格式
+        /// </summary>
+        private void ValidateConfigJson(DeviceType type, string configJson)
         {
-            if (type == "S7")
+            try
             {
-                if (string.IsNullOrEmpty(cpuType))
+                switch (type)
                 {
-                    throw new BusinessException("西门子 S7 协议必须指定 CPU 类型");
-                }
-                if (!ValidCpuTypes.Contains(cpuType))
-                {
-                    throw new BusinessException($"无效的 CPU 类型 '{cpuType}'。支持的类型包括: {string.Join(", ", ValidCpuTypes)}");
+                    case DeviceType.S7:
+                        JsonSerializer.Deserialize<S7Config>(configJson);
+                        break;
+                    case DeviceType.ModbusTcp:
+                        JsonSerializer.Deserialize<ModbusTcpConfig>(configJson);
+                        break;
+                    case DeviceType.OpcUa:
+                        JsonSerializer.Deserialize<OpcUaConfig>(configJson);
+                        break;
+                    case DeviceType.Mqtt:
+                        JsonSerializer.Deserialize<MqttConfig>(configJson);
+                        break;
+                    case DeviceType.Virtual:
+                        JsonSerializer.Deserialize<VirtualConfig>(configJson);
+                        break;
+                    default:
+                        // 未知类型，仅验证是否为有效 JSON
+                        JsonDocument.Parse(configJson);
+                        break;
                 }
             }
+            catch (JsonException ex)
+            {
+                throw new BusinessException($"协议配置 JSON 格式无效: {ex.Message}");
+            }
         }
-private async Task ValidateIpPortUniqueAsync(string ip, int? port, int? excludeDeviceId = null)
-{
-    var existing = await _repository.GetListAsync(d => d.IpAddress == ip && d.Port == port);
-    if (existing.Any(d => d.Id != excludeDeviceId))
-    {
-        throw new BusinessException($"已存在使用相同 IP ({ip}) 和端口 ({port}) 的设备。");
-    }
-}
+
+        /// <summary>
+        /// 获取默认驱动名称
+        /// </summary>
+        private static string GetDefaultDriverName(DeviceType type) => type switch
+        {
+            DeviceType.S7 => "S7Driver",
+            DeviceType.ModbusTcp => "ModbusTcpDriver",
+            DeviceType.OpcUa => "OpcUaDriver",
+            DeviceType.Mqtt => "MqttDriver",
+            DeviceType.Virtual => "VirtualDriver",
+            _ => $"{type}Driver"
+        };
 
         public async Task<DeviceDto> CreateAsync(CreateDeviceDto dto)
         {
@@ -112,9 +142,6 @@ private async Task ValidateIpPortUniqueAsync(string ip, int? port, int? excludeD
             {
                 throw new BusinessException($"设备标识 '{dto.Key}' 已存在");
             }
-
-            // 5. 业务校验：IP+端口唯一性
-            await ValidateIpPortUniqueAsync(dto.IpAddress, dto.Port);
 
             // 2. 存在性检查：校验区域和模型是否存在
             var area = await _areaRepository.GetByIdAsync(dto.AreaId);
@@ -135,57 +162,69 @@ private async Task ValidateIpPortUniqueAsync(string ip, int? port, int? excludeD
                 throw new BusinessException($"协议类型冲突。所选模型 '{model.Name}' 的类型为 {model.Type}，而当前设备配置的类型为 {dto.Type}。");
             }
 
-            // 4. 协议特定校验
-            ValidateCpuType(dto.Type, dto.CpuType);
+            // 4. 验证协议配置 JSON 格式
+            ValidateConfigJson(dto.Type, dto.ConfigJson);
 
-            var entity = new Device
+            // 5. 设置默认驱动名称
+            var driverName = string.IsNullOrEmpty(dto.DriverName) 
+                ? GetDefaultDriverName(dto.Type) 
+                : dto.DriverName;
+
+            await using var transaction = await _uow.BeginTransactionAsync();
+            try
             {
-                Name = dto.Name,
-                Key = dto.Key,
-                AreaId = dto.AreaId,
-                ModelId = dto.ModelId,
-                Type = dto.Type,
-                IpAddress = dto.IpAddress,
-                Port = dto.Port,
-                Status = dto.Status,
-                CpuType = dto.CpuType,
-                Rack = dto.Rack,
-                Slot = dto.Slot,
-                LastUpdated = DateTime.Now
-            };
-            await _repository.InsertAsync(entity);
-            return await GetByIdAsync(entity.Id);
+                var entity = new Device
+                {
+                    Name = dto.Name,
+                    Key = dto.Key,
+                    AreaId = dto.AreaId,
+                    ModelId = dto.ModelId,
+                    Type = dto.Type,
+                    IsEnabled = dto.IsEnabled,
+                    PollingInterval = dto.PollingInterval,
+                    DriverName = driverName,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
+                await _repository.InsertAsync(entity);
+
+                // 创建协议配置
+                var config = new DeviceConfig
+                {
+                    DeviceId = entity.Id,
+                    JsonConfig = dto.ConfigJson,
+                    Version = 1,
+                    UpdatedAt = DateTime.Now
+                };
+                await _configRepository.InsertAsync(config);
+
+                await transaction.CommitAsync();
+                return await GetByIdAsync(entity.Id);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<DeviceDto> UpdateAsync(DeviceDto dto)
         {
-            var entity = await _repository.GetByIdAsync(dto.Id);
+            var entity = await _repository.GetByIdWithConfigAsync(dto.Id);
             if (entity == null)
             {
                 throw new BusinessException($"ID 为 {dto.Id} 的设备不存在");
             }
 
-            // 1. 运行状态保护：在线设备禁止修改关键通信参数
-            if (entity.Status == DeviceStatus.Online)
-            {
-                bool criticalChanged = entity.IpAddress != dto.IpAddress ||
-                                     entity.Port != dto.Port ||
-                                     entity.Type != dto.Type;
-
-                if (criticalChanged)
-                {
-                    throw new BusinessException($"设备 '{entity.Name}' 处于在线运行状态，禁止修改 IP、端口或协议类型。请先停止设备。");
-                }
-            }
-
-            // 2. 业务校验：Key 不能与其他设备重复
+            // 1. 业务校验：Key 不能与其他设备重复
             var existing = await _repository.GetListAsync(d => d.Key == dto.Key && d.Id != dto.Id);
             if (existing.Any())
             {
                 throw new BusinessException($"设备标识 '{dto.Key}' 已存在");
             }
 
-            // 3. 存在性检查：校验区域和模型是否存在
+            // 2. 存在性检查：校验区域和模型是否存在
             var area = await _areaRepository.GetByIdAsync(dto.AreaId);
             if (area == null)
             {
@@ -198,33 +237,50 @@ private async Task ValidateIpPortUniqueAsync(string ip, int? port, int? excludeD
                 throw new BusinessException($"ID 为 {dto.ModelId} 的变量模型不存在");
             }
 
-            // 5. 业务校验：IP+端口唯一性
-            await ValidateIpPortUniqueAsync(dto.IpAddress, dto.Port, dto.Id);
-
-            // 4. 协议一致性检查：设备协议类型必须与模型定义的协议类型一致
+            // 3. 协议一致性检查
             if (model.Type != dto.Type)
             {
                 throw new BusinessException($"协议类型冲突。所选模型 '{model.Name}' 的类型为 {model.Type}，而当前设备配置的类型为 {dto.Type}。");
             }
 
-            // 5. 协议特定校验
-            ValidateCpuType(dto.Type, dto.CpuType);
+            // 4. 验证协议配置 JSON 格式
+            if (!string.IsNullOrEmpty(dto.ConfigJson))
+            {
+                ValidateConfigJson(dto.Type, dto.ConfigJson);
+            }
 
-            entity.Name = dto.Name;
-            entity.Key = dto.Key;
-            entity.AreaId = dto.AreaId;
-            entity.ModelId = dto.ModelId;
-            entity.Type = dto.Type;
-            entity.IpAddress = dto.IpAddress;
-            entity.Port = dto.Port;
-            entity.Status = dto.Status;
-            entity.CpuType = dto.CpuType;
-            entity.Rack = dto.Rack;
-            entity.Slot = dto.Slot;
-            entity.LastUpdated = DateTime.Now;
+            await using var transaction = await _uow.BeginTransactionAsync();
+            try
+            {
+                entity.Name = dto.Name;
+                entity.Key = dto.Key;
+                entity.AreaId = dto.AreaId;
+                entity.ModelId = dto.ModelId;
+                entity.Type = dto.Type;
+                entity.IsEnabled = dto.IsEnabled;
+                entity.PollingInterval = dto.PollingInterval;
+                entity.DriverName = dto.DriverName;
+                entity.UpdatedAt = DateTime.Now;
 
-            await _repository.UpdateAsync(entity);
-            return await GetByIdAsync(dto.Id);
+                await _repository.UpdateAsync(entity);
+
+                // 更新协议配置
+                if (!string.IsNullOrEmpty(dto.ConfigJson) && entity.Config != null)
+                {
+                    entity.Config.JsonConfig = dto.ConfigJson;
+                    entity.Config.Version++;
+                    entity.Config.UpdatedAt = DateTime.Now;
+                    await _configRepository.UpdateAsync(entity.Config);
+                }
+
+                await transaction.CommitAsync();
+                return await GetByIdAsync(dto.Id);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task DeleteAsync(int id)
@@ -232,13 +288,7 @@ private async Task ValidateIpPortUniqueAsync(string ip, int? port, int? excludeD
             var entity = await _repository.GetByIdAsync(id);
             if (entity == null) return;
 
-            // 1. 安全校验：运行中的设备禁止删除
-            if (entity.Status == DeviceStatus.Online)
-            {
-                throw new BusinessException($"无法删除设备 '{entity.Name}'，因为它当前处于在线状态。请先停止采集任务。");
-            }
-
-            // 2. 依赖检查：检查是否被对外接口引用
+            // 1. 依赖检查：检查是否被对外接口引用
             var interfaces = await _interfaceRepository.GetListAsync(i => i.DeviceId == id);
             if (interfaces.Any())
             {
@@ -253,6 +303,7 @@ private async Task ValidateIpPortUniqueAsync(string ip, int? port, int? excludeD
                 await _triggerRepository.DeleteRangeAsync(t => t.DeviceId == id);
                 await _realtimeDataRepository.DeleteRangeAsync(r => r.DeviceId == id);
                 await _interfaceRepository.DeleteRangeAsync(i => i.DeviceId == id);
+                await _configRepository.DeleteRangeAsync(c => c.DeviceId == id);
 
                 // 删除设备
                 await _repository.DeleteAsync(entity);

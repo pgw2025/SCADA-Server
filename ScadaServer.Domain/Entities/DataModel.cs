@@ -1,4 +1,5 @@
 using SqlSugar;
+using ScadaServer.Domain.Enums;
 
 namespace ScadaServer.Domain.Entities
 {
@@ -10,17 +11,32 @@ namespace ScadaServer.Domain.Entities
     {
         [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
         public int Id { get; set; }
-        public string Name { get; set; }
-        public string Description { get; set; }
+
+        [SugarColumn(Length = 100, IsNullable = false)]
+        public string Name { get; set; } = string.Empty;
+
+        [SugarColumn(Length = 500)]
+        public string? Description { get; set; }
+
         /// <summary>
-        /// 类型：OPCUA/S7/MQTT/Virtual
+        /// 设备类型（枚举）
         /// </summary>
-        public string Type { get; set; }
+        public DeviceType Type { get; set; }
+
+        /// <summary>
+        /// 创建时间
+        /// </summary>
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        /// <summary>
+        /// 更新时间
+        /// </summary>
+        public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
         /// <summary>
         /// 模型下的变量列表
         /// </summary>
         [Navigate(NavigateType.OneToMany, nameof(ModelVariable.ModelId))]
-        public List<ModelVariable> Variables { get; set; }
+        public List<ModelVariable>? Variables { get; set; }
     }
 }

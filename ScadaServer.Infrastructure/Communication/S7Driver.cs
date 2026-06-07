@@ -1,5 +1,7 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using S7.Net;
+using ScadaServer.Application.DTOs;
 using ScadaServer.Domain.Entities;
 
 namespace ScadaServer.Infrastructure.Communication
@@ -7,12 +9,22 @@ namespace ScadaServer.Infrastructure.Communication
     public class S7Driver : IProtocolDriver
     {
         private Plc _plc;
+        
         // 支持的格式：DB1.DBX0.0, DB1.DBW10, I0.1, Q0.0, M10.0, MW10, MD10, IB0, QB0, MB0 等
-        private static readonly Regex S7AddressRegex = new Regex(@"^(?:DB(?<db>\d+)\.)?(?<type>DBX|DBB|DBW|DBD|I|Q|M|IB|IW|ID|QB|QW|QD|MB|MW|MD)(?<offset>\d+)(?:\.(?<bit>\d+))?$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex S7AddressRegex = new Regex(
+            @"^(?:DB(?<db>\d+)\.)?(?<type>DBX|DBB|DBW|DBD|I|Q|M|IB|IW|ID|QB|QW|QD|MB|MW|MD)(?<offset>\d+)(?:\.(?<bit>\d+))?$", 
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        public async Task<bool> ConnectAsync(Device device)
+        public async Task<bool> ConnectAsync(Device device, string configJson)
         {
-            var cpuType = device.CpuType switch
+            // 从 JSON 反序列化配置
+            var config = JsonSerializer.Deserialize<S7Config>(configJson);
+            if (config == null)
+            {
+                throw new ArgumentException("无效的 S7 协议配置");
+            }
+
+            var cpuType = config.CpuType?.ToUpper() switch
             {
                 "S71200" => CpuType.S71200,
                 "S71500" => CpuType.S71500,
@@ -21,7 +33,7 @@ namespace ScadaServer.Infrastructure.Communication
                 _ => CpuType.S71200
             };
 
-            _plc = new Plc(cpuType, device.IpAddress, (short)(device.Rack ?? 0), (short)(device.Slot ?? 1));
+            _plc = new Plc(cpuType, config.IpAddress, (short)config.Rack, (short)config.Slot);
             await _plc.OpenAsync();
             return _plc.IsConnected;
         }
@@ -129,7 +141,7 @@ namespace ScadaServer.Infrastructure.Communication
                     "DBX" => "BIT",
                     "DBB" => "BYTE",
                     "DBW" => "INT",
-                    "DBD" => "DINT", // 默认为 DINT，后续可扩展
+                    "DBD" => "DINT",
                     _ => "BYTE"
                 };
             }
@@ -166,7 +178,7 @@ namespace ScadaServer.Infrastructure.Communication
         {
             public DataType S7Area { get; set; }
             public int DbNumber { get; set; }
-            public string ValueType { get; set; } // BIT, BYTE, INT, DINT, REAL
+            public string ValueType { get; set; }
             public int ByteOffset { get; set; }
             public int BitOffset { get; set; }
             public int ByteLength { get; set; }

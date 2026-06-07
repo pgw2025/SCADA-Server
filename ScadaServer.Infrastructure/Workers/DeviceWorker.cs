@@ -19,20 +19,27 @@ namespace ScadaServer.Infrastructure.Workers
         private readonly DeviceRegistry _registry;
         private readonly IScadaNotificationService _notificationService;
         private readonly IProtocolDriverFactory _driverFactory;
-        
-        // 改进：同时存储 Cts 和 Task 句柄
+
+        // 设备任务管理
         private readonly ConcurrentDictionary<int, (CancellationTokenSource Cts, Task WorkerTask)> _deviceTasks = new();
-        private readonly ConcurrentDictionary<int, DeviceStatus> _statusCache = new();
-        private readonly Channel<VariableUpdate> _notificationChannel = Channel.CreateUnbounded<VariableUpdate>(new UnboundedChannelOptions { SingleReader = true });
+        
+        // 运行时状态（内存维护，不持久化）
+        private readonly ConcurrentDictionary<int, DeviceRuntime> _runtimeCache = new();
+        
+        // Key -> DeviceId 映射（快速查找）
+        private readonly ConcurrentDictionary<string, int> _keyIndex = new();
+        
+        private readonly Channel<VariableUpdate> _notificationChannel = Channel.CreateUnbounded<VariableUpdate>(
+            new UnboundedChannelOptions { SingleReader = true });
         private readonly SemaphoreSlim _lock = new(1, 1);
         private CancellationToken _stoppingToken;
 
         public record VariableUpdate(int DeviceId, string Key, object Value);
 
         public DeviceWorker(
-            ILogger<DeviceWorker> logger, 
-            IServiceProvider serviceProvider, 
-            DeviceRegistry registry, 
+            ILogger<DeviceWorker> logger,
+            IServiceProvider serviceProvider,
+            DeviceRegistry registry,
             IScadaNotificationService notificationService,
             IProtocolDriverFactory driverFactory)
         {
@@ -43,11 +50,36 @@ namespace ScadaServer.Infrastructure.Workers
             _driverFactory = driverFactory;
         }
 
+        /// <summary>
+        /// 获取设备运行时状态
+        /// </summary>
+        public DeviceRuntime? GetRuntime(int deviceId)
+        {
+            return _runtimeCache.TryGetValue(deviceId, out var runtime) ? runtime : null;
+        }
+
+        /// <summary>
+        /// 根据 Key 获取设备运行时状态
+        /// </summary>
+        public DeviceRuntime? GetRuntimeByKey(string key)
+        {
+            if (_keyIndex.TryGetValue(key, out var deviceId))
+            {
+                return GetRuntime(deviceId);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 获取所有设备运行时状态
+        /// </summary>
+        public IEnumerable<DeviceRuntime> GetAllRuntimes() => _runtimeCache.Values;
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _stoppingToken = stoppingToken;
             _logger.LogInformation("Acquisition Engine Started.");
-            
+
             // 启动通知处理器
             var notificationTask = ProcessNotificationsAsync(stoppingToken);
 
@@ -72,6 +104,13 @@ namespace ScadaServer.Infrastructure.Workers
                 try
                 {
                     await _notificationService.NotifyVariableUpdateAsync(update.DeviceId, update.Key, update.Value);
+
+                    // 更新运行时状态
+                    if (_runtimeCache.TryGetValue(update.DeviceId, out var runtime))
+                    {
+                        runtime.LastCommunicationTime = DateTime.Now;
+                        runtime.SuccessCount++;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -83,7 +122,7 @@ namespace ScadaServer.Infrastructure.Workers
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Executing graceful shutdown for all acquisition tasks...");
-            
+
             // 1. 触发所有任务取消信号
             foreach (var item in _deviceTasks.Values)
             {
@@ -105,6 +144,7 @@ namespace ScadaServer.Infrastructure.Workers
 
             await base.StopAsync(cancellationToken);
         }
+
         public async Task RefreshDevice(int deviceId)
         {
             await _lock.WaitAsync();
@@ -116,17 +156,26 @@ namespace ScadaServer.Infrastructure.Workers
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
                 var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
 
-                var device = await deviceRepo.GetByIdAsync(deviceId);
+                var device = await deviceRepo.GetByIdWithConfigAsync(deviceId);
                 if (device == null)
                 {
                     _registry.RemoveDevice(deviceId);
+                    _runtimeCache.TryRemove(deviceId, out _);
+                    _keyIndex.TryRemove(device.Key, out _);
                     return;
                 }
 
                 var variables = (await varRepo.GetListAsync(v => v.ModelId == device.ModelId)).ToList();
                 _registry.UpdateDevice(device, variables);
 
-                StartDeviceTask(device, variables);
+                // 更新 Key 索引
+                _keyIndex[device.Key] = device.Id;
+
+                // 只有启用的设备才启动采集
+                if (device.IsEnabled)
+                {
+                    StartDeviceTask(device, variables);
+                }
             }
             finally
             {
@@ -143,10 +192,10 @@ namespace ScadaServer.Infrastructure.Workers
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
                 var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable>>();
 
-                var devices = await deviceRepo.GetListAsync();
+                var devices = await deviceRepo.GetListWithConfigAsync();
                 var activeDeviceIds = devices.Select(d => d.Id).ToHashSet();
 
-                // 批量加载所有变量，解决 N+1 问题
+                // 批量加载所有变量
                 var allVariables = await varRepo.GetListAsync();
                 var variableLookup = allVariables.ToLookup(v => v.ModelId);
 
@@ -157,7 +206,7 @@ namespace ScadaServer.Infrastructure.Workers
                     {
                         await StopDeviceInternal(deviceId);
                         _registry.RemoveDevice(deviceId);
-                        _statusCache.TryRemove(deviceId, out _);
+                        _runtimeCache.TryRemove(deviceId, out _);
                     }
                 }
 
@@ -166,8 +215,23 @@ namespace ScadaServer.Infrastructure.Workers
                 {
                     var variables = variableLookup[device.ModelId].ToList();
                     _registry.UpdateDevice(device, variables);
-                    
-                    if (!_deviceTasks.ContainsKey(device.Id))
+
+                    // 更新 Key 索引
+                    _keyIndex[device.Key] = device.Id;
+
+                    // 初始化运行时状态
+                    if (!_runtimeCache.ContainsKey(device.Id))
+                    {
+                        _runtimeCache[device.Id] = new DeviceRuntime
+                        {
+                            DeviceId = device.Id,
+                            DeviceName = device.Name,
+                            CurrentStatus = DeviceStatus.Offline
+                        };
+                    }
+
+                    // 只有启用的设备才启动采集
+                    if (device.IsEnabled && !_deviceTasks.ContainsKey(device.Id))
                     {
                         StartDeviceTask(device, variables);
                     }
@@ -182,15 +246,21 @@ namespace ScadaServer.Infrastructure.Workers
         private void StartDeviceTask(Device device, List<ModelVariable> variables)
         {
             var cts = new CancellationTokenSource();
-            
-            // 使用 LongRunning 选项，优化长生命周期任务的线程调度
+            var runtime = _runtimeCache.GetOrAdd(device.Id, _ => new DeviceRuntime
+            {
+                DeviceId = device.Id,
+                DeviceName = device.Name,
+                CurrentStatus = DeviceStatus.Offline
+            });
+
+            // 使用 LongRunning 选项
             var task = Task.Factory.StartNew(
-                async () => 
+                async () =>
                 {
                     using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(_stoppingToken, cts.Token);
                     try
                     {
-                        await RunDeviceOrchestratorWithRetry(device, variables, linkedCts.Token);
+                        await RunDeviceOrchestratorWithRetry(device, variables, runtime, linkedCts.Token);
                     }
                     catch (OperationCanceledException) { }
                     catch (Exception ex)
@@ -203,7 +273,7 @@ namespace ScadaServer.Infrastructure.Workers
                 TaskScheduler.Default
             ).Unwrap();
 
-            // 监控任务异常崩溃
+            // 监控任务异常
             _ = task.ContinueWith(t =>
             {
                 if (t.IsFaulted)
@@ -222,7 +292,6 @@ namespace ScadaServer.Infrastructure.Workers
                 try
                 {
                     item.Cts.Cancel();
-                    // 等待该任务优雅退出
                     await Task.WhenAny(item.WorkerTask, Task.Delay(2000));
                 }
                 catch (ObjectDisposedException) { }
@@ -230,56 +299,70 @@ namespace ScadaServer.Infrastructure.Workers
                 {
                     item.Cts.Dispose();
                 }
-            }
-        }
 
-        private async Task UpdateStatusAsync(int deviceId, DeviceStatus status)
-        {
-            // 状态没变就不打库
-            if (_statusCache.TryGetValue(deviceId, out var oldStatus) && oldStatus == status)
-            {
-                return;
-            }
-
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-                var device = await deviceRepo.GetByIdAsync(deviceId);
-                if (device != null)
+                // 更新运行时状态
+                if (_runtimeCache.TryGetValue(deviceId, out var runtime))
                 {
-                    device.Status = status;
-                    device.LastUpdated = DateTime.Now;
-                    await deviceRepo.UpdateAsync(device);
-                    _statusCache[deviceId] = status;
-                    _logger.LogInformation($"Updated device {device.Name} status to {status}");
+                    runtime.CurrentStatus = DeviceStatus.Offline;
                 }
             }
-            catch (Exception ex)
+        }
+
+        private void UpdateRuntimeStatus(DeviceRuntime runtime, DeviceStatus status, string? error = null)
+        {
+            runtime.CurrentStatus = status;
+            runtime.LastHeartbeat = DateTime.Now;
+
+            if (status == DeviceStatus.Fault)
             {
-                _logger.LogWarning($"Failed to update device {deviceId} status: {ex.Message}");
+                runtime.LastError = error;
+                runtime.FailureCount++;
+            }
+
+            if (status == DeviceStatus.Online)
+            {
+                runtime.LastError = null;
             }
         }
 
-        private async Task RunDeviceOrchestratorWithRetry(Device device, List<ModelVariable> variables, CancellationToken stoppingToken)
+        private async Task RunDeviceOrchestratorWithRetry(
+            Device device, 
+            List<ModelVariable> variables, 
+            DeviceRuntime runtime,
+            CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
                 IProtocolDriver? driver = null;
                 try
                 {
-                    driver = _driverFactory.CreateDriver(device.Type);
+                    // 优先使用 DriverName，否则使用 Type
+                    driver = !string.IsNullOrEmpty(device.DriverName)
+                        ? _driverFactory.CreateDriver(device.DriverName)
+                        : _driverFactory.CreateDriver(device.Type);
+
                     if (driver == null)
                     {
                         _logger.LogError($"Unsupported device type: {device.Type} for device {device.Name}");
+                        UpdateRuntimeStatus(runtime, DeviceStatus.Fault, $"不支持的设备类型: {device.Type}");
                         return;
                     }
 
-                    _logger.LogInformation($"Connecting to {device.Name} ({device.IpAddress})...");
-                    if (await driver.ConnectAsync(device))
+                    // 检查配置是否存在
+                    if (device.Config == null || string.IsNullOrEmpty(device.Config.JsonConfig))
+                    {
+                        _logger.LogError($"Device {device.Name} has no protocol configuration");
+                        UpdateRuntimeStatus(runtime, DeviceStatus.Fault, "缺少协议配置");
+                        return;
+                    }
+
+                    _logger.LogInformation($"Connecting to {device.Name}...");
+                    UpdateRuntimeStatus(runtime, DeviceStatus.Connecting);
+
+                    if (await driver.ConnectAsync(device, device.Config.JsonConfig))
                     {
                         _logger.LogInformation($"Connected to {device.Name}. Starting acquisition tasks.");
-                        await UpdateStatusAsync(device.Id, DeviceStatus.Online);
+                        UpdateRuntimeStatus(runtime, DeviceStatus.Online);
 
                         var subscriptionVars = variables.Where(v => v.UpdateMode == UpdateMode.Subscription).ToList();
                         var pollingVars = variables.Where(v => v.UpdateMode == UpdateMode.Polling).ToList();
@@ -294,10 +377,11 @@ namespace ScadaServer.Infrastructure.Workers
                             });
                         }
 
-                        var pollingGroups = pollingVars.GroupBy(v => v.PollingIntervalMs);
+                        // 使用设备配置的采集周期作为默认值
+                        var pollingGroups = pollingVars.GroupBy(v => v.PollingIntervalMs > 0 ? v.PollingIntervalMs : device.PollingInterval);
                         foreach (var group in pollingGroups)
                         {
-                            tasks.Add(RunPollingLoop(driver, device, group.ToList(), group.Key, stoppingToken));
+                            tasks.Add(RunPollingLoop(driver, device, runtime, group.ToList(), group.Key, stoppingToken));
                         }
 
                         if (tasks.Any())
@@ -317,7 +401,8 @@ namespace ScadaServer.Infrastructure.Workers
                     else
                     {
                         _logger.LogWarning($"Failed to connect to {device.Name}. Will retry in 10s.");
-                        await UpdateStatusAsync(device.Id, DeviceStatus.Offline);
+                        UpdateRuntimeStatus(runtime, DeviceStatus.Offline, "连接失败");
+                        runtime.ReconnectCount++;
                         await Task.Delay(10000, stoppingToken);
                     }
                 }
@@ -328,7 +413,8 @@ namespace ScadaServer.Infrastructure.Workers
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"Error in acquisition for {device.Name}. Retrying in 5s...");
-                    await UpdateStatusAsync(device.Id, DeviceStatus.Fault);
+                    UpdateRuntimeStatus(runtime, DeviceStatus.Fault, ex.Message);
+                    runtime.ReconnectCount++;
                     try
                     {
                         await Task.Delay(5000, stoppingToken);
@@ -349,17 +435,23 @@ namespace ScadaServer.Infrastructure.Workers
                             _logger.LogDebug(ex, $"Error during driver cleanup for {device.Name}");
                         }
                     }
-                    await UpdateStatusAsync(device.Id, DeviceStatus.Offline);
+                    UpdateRuntimeStatus(runtime, DeviceStatus.Offline);
                 }
             }
             _logger.LogInformation($"Acquisition loop stopped for device {device.Name}");
         }
 
-        private async Task RunPollingLoop(IProtocolDriver driver, Device device, List<ModelVariable> variables, int intervalMs, CancellationToken stoppingToken)
+        private async Task RunPollingLoop(
+            IProtocolDriver driver, 
+            Device device, 
+            DeviceRuntime runtime,
+            List<ModelVariable> variables, 
+            int intervalMs, 
+            CancellationToken stoppingToken)
         {
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(intervalMs));
             var sw = new Stopwatch();
-            
+
             while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
             {
                 try
@@ -383,6 +475,7 @@ namespace ScadaServer.Infrastructure.Workers
                 catch (Exception ex)
                 {
                     _logger.LogWarning($"Polling error for group {intervalMs}ms on {device.Name}: {ex.Message}");
+                    runtime.FailureCount++;
                 }
             }
         }

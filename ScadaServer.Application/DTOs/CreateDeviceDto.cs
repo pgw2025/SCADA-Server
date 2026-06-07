@@ -6,11 +6,11 @@ namespace ScadaServer.Application.DTOs
     public class CreateDeviceDto
     {
         [Required(ErrorMessage = "设备名称不能为空")]
-        [StringLength(50, ErrorMessage = "设备名称不能超过50个字符")]
+        [StringLength(100, ErrorMessage = "设备名称不能超过100个字符")]
         public string Name { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "设备标识不能为空")]
-        [StringLength(50, ErrorMessage = "设备标识不能超过50个字符")]
+        [StringLength(100, ErrorMessage = "设备标识不能超过100个字符")]
         public string Key { get; set; } = string.Empty;
 
         [Range(1, int.MaxValue, ErrorMessage = "请选择所属区域")]
@@ -19,24 +19,36 @@ namespace ScadaServer.Application.DTOs
         [Range(1, int.MaxValue, ErrorMessage = "请选择变量模型")]
         public int ModelId { get; set; }
 
-        [Required(ErrorMessage = "通信协议类型不能为空")]
-        [RegularExpression("^(S7|OPCUA|MQTT|Virtual)$", ErrorMessage = "不支持的协议类型。可选值：S7, OPCUA, MQTT, Virtual")]
-        public string Type { get; set; } = string.Empty;
+        /// <summary>
+        /// 设备类型
+        /// </summary>
+        [Required(ErrorMessage = "设备类型不能为空")]
+        public DeviceType Type { get; set; }
 
-        [RegularExpression(@"^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$", ErrorMessage = "IP地址格式不正确")]
-        public string IpAddress { get; set; } = string.Empty;
+        /// <summary>
+        /// 是否启用采集
+        /// </summary>
+        public bool IsEnabled { get; set; } = true;
 
-        [Range(1, 65535, ErrorMessage = "端口号必须在1-65535之间")]
-        public int? Port { get; set; }
+        /// <summary>
+        /// 采集周期（毫秒）
+        /// </summary>
+        [Range(10, 3600000, ErrorMessage = "采集周期必须在10ms到1小时之间")]
+        public int PollingInterval { get; set; } = 1000;
 
-        public DeviceStatus Status { get; set; }
-        public string CpuType { get; set; } = string.Empty;
-        [Required(ErrorMessage = "Rack 是必填项")]
-        [Range(0, 7, ErrorMessage = "Rack 必须在 0 到 7 之间")]
-        public int? Rack { get; set; }
+        /// <summary>
+        /// 驱动名称（可选，默认根据 Type 自动选择）
+        /// </summary>
+        public string? DriverName { get; set; }
 
-        [Required(ErrorMessage = "Slot 是必填项")]
-        [Range(0, 31, ErrorMessage = "Slot 必须在 0 到 31 之间")]
-        public int? Slot { get; set; }
+        /// <summary>
+        /// 协议配置（JSON 格式）
+        /// S7: {"IpAddress":"192.168.1.10","Port":102,"Rack":0,"Slot":1,"CpuType":"S71500"}
+        /// ModbusTcp: {"IpAddress":"192.168.1.20","Port":502,"UnitId":1}
+        /// OpcUa: {"EndpointUrl":"opc.tcp://localhost:4840","SecurityPolicy":"None"}
+        /// Mqtt: {"Broker":"tcp://localhost:1883","Topic":"scada/data"}
+        /// </summary>
+        [Required(ErrorMessage = "协议配置不能为空")]
+        public string ConfigJson { get; set; } = string.Empty;
     }
 }

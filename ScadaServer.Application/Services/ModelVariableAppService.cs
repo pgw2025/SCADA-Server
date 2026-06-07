@@ -140,7 +140,7 @@ namespace ScadaServer.Application.Services
             await _repository.DeleteAsync(entity);
         }
 
-        private void ValidateVariableLogic(ModelVariableDto dto, string protocolType)
+        private void ValidateVariableLogic(ModelVariableDto dto, DeviceType protocolType)
         {
             // A. 类型匹配校验
             if (dto.Type == VariableType.Digital && dto.DataType != DataTypeEnum.BOOL && dto.DataType != DataTypeEnum.BIT)
@@ -154,7 +154,7 @@ namespace ScadaServer.Application.Services
                 throw new BusinessException("变量地址不能为空");
             }
 
-            if (protocolType == "S7")
+            if (protocolType == DeviceType.S7)
             {
                 // 西门子 S7 地址正则校验：支持 DB块(DB1.DBX0.0) 或 寄存器区(I0.0, Q1.2, M10.5, MW100, MD100等)
                 var s7Regex = @"^(?:DB\d+\.DB[XWDB]\d+(\.\d+)?)|([IQM](?:B|W|D)?\d+(\.\d+)?)$";
@@ -163,7 +163,7 @@ namespace ScadaServer.Application.Services
                     throw new BusinessException($"西门子 S7 地址 '{dto.Address}' 格式不正确。示例：DB1.DBX0.0, I0.0, Q1.2, M10.5, MW100");
                 }
             }
-            else if (protocolType == "OPCUA")
+            else if (protocolType == DeviceType.OpcUa)
             {
                 // OPC UA 节点 ID 通常包含 ns= 或 i=
                 if (!dto.Address.Contains("ns=") && !dto.Address.Contains("i="))
@@ -171,9 +171,13 @@ namespace ScadaServer.Application.Services
                     throw new BusinessException($"OPC UA 节点 ID '{dto.Address}' 格式不正确。通常应包含 'ns=' 或 'i='。");
                 }
             }
-            else if (protocolType == "Virtual")
+            else if (protocolType == DeviceType.Virtual)
             {
                 // Virtual 类型不校验具体地址格式，允许任意字符串
+            }
+            else if (protocolType == DeviceType.Mqtt)
+            {
+                // MQTT 类型，地址为 Topic
             }
             else
             {

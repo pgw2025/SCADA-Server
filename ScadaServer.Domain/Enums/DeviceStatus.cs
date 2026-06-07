@@ -5,6 +5,7 @@ namespace ScadaServer.Domain.Enums
         Offline = 0,
         Online = 1,
         Fault = 2,
-        ConfigUpdating = 3
+        ConfigUpdating = 3,
+        Connecting = 4
     }
 }
