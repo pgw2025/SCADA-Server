@@ -2,7 +2,7 @@ using ScadaServer.Domain.Entities;
 
 namespace ScadaServer.Infrastructure.Communication
 {
-    public interface IProtocolDriver
+    public interface IProtocolDriver : IAsyncDisposable
     {
         Task<bool> ConnectAsync(Device device);
         Task<object> ReadAsync(ModelVariable variable);

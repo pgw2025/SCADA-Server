@@ -103,6 +103,11 @@ namespace ScadaServer.Infrastructure.Communication
             }
         }
 
+        public async ValueTask DisposeAsync()
+        {
+            await DisconnectAsync();
+        }
+
         private S7AddressInfo ParseAddress(string address)
         {
             var match = S7AddressRegex.Match(address);

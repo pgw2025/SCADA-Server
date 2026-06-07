@@ -154,5 +154,10 @@ namespace ScadaServer.Infrastructure.Communication
             _subscriptions.Clear();
             _monitoredItems.Clear();
         }
+
+        public async ValueTask DisposeAsync()
+        {
+            await DisconnectAsync();
+        }
     }
 }
