@@ -1,4 +1,3 @@
-using SqlSugar;
 using ScadaServer.Domain.Enums;
 
 namespace ScadaServer.Domain.Entities
@@ -6,22 +5,18 @@ namespace ScadaServer.Domain.Entities
     /// <summary>
     /// 设备表 - 物理设备的实例
     /// </summary>
-    [SugarTable("Devices")]
     public class Device
     {
-        [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
         public int Id { get; set; }
 
         /// <summary>
         /// 设备名称
         /// </summary>
-        [SugarColumn(Length = 100, IsNullable = false)]
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// 唯一键（用于运行时快速查找）
         /// </summary>
-        [SugarColumn(Length = 100, IsNullable = false, ColumnDescription = "唯一键")]
         public string Key { get; set; } = string.Empty;
 
         /// <summary>
@@ -32,7 +27,6 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 关联区域
         /// </summary>
-        [Navigate(NavigateType.OneToOne, nameof(AreaId))]
         public Area? Area { get; set; }
 
         /// <summary>
@@ -43,7 +37,6 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 关联变量模型
         /// </summary>
-        [Navigate(NavigateType.OneToOne, nameof(ModelId))]
         public DataModel? Model { get; set; }
 
         /// <summary>
@@ -65,7 +58,6 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 驱动名称（用于驱动工厂创建实例）
         /// </summary>
-        [SugarColumn(Length = 100)]
         public string? DriverName { get; set; }
 
         /// <summary>
@@ -86,13 +78,11 @@ namespace ScadaServer.Domain.Entities
         /// <summary>
         /// 协议配置（一对一）
         /// </summary>
-        [Navigate(NavigateType.OneToOne, nameof(Id), nameof(DeviceConfig.DeviceId))]
         public DeviceConfig? Config { get; set; }
 
         /// <summary>
         /// 该设备下的触发器
         /// </summary>
-        [Navigate(NavigateType.OneToMany, nameof(VariableTrigger.DeviceId))]
         public List<VariableTrigger>? Triggers { get; set; }
     }
 }
