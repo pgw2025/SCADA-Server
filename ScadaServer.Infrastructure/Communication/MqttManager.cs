@@ -64,7 +64,7 @@ namespace ScadaServer.Infrastructure.Communication
             try
             {
                 using var scope = _serviceProvider.CreateScope();
-                var serverRepo = scope.ServiceProvider.GetRequiredService<IRepository<MqttServer  , int>>();
+                var serverRepo = scope.ServiceProvider.GetRequiredService<IMqttServerRepository>();
                 var mappingRepo = scope.ServiceProvider.GetRequiredService<IRepository<MqttVariableConfig, int>>();
 
                 var servers = await serverRepo.GetListAsync();

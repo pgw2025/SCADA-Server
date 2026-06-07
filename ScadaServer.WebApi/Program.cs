@@ -11,6 +11,7 @@ using ScadaServer.Application.Options;
 using ScadaServer.WebApi.Services;
 using ScadaServer.WebApi.Hubs;
 using ScadaServer.Domain.Interfaces.Repositories;
+using ScadaServer.Domain.Entities;
 using Microsoft.Extensions.Options;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -144,10 +145,12 @@ builder.Services.AddScoped<IDatabaseConfigRepository, DatabaseConfigRepository>(
 builder.Services.AddScoped<IDataConversionRepository, DataConversionRepository>();
 builder.Services.AddScoped<IDataModelRepository, DataModelRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
+builder.Services.AddScoped<IRepository<DeviceConfig, int>, DeviceConfigRepository>();
 builder.Services.AddScoped<IExposedInterfaceRepository, ExposedInterfaceRepository>();
 builder.Services.AddScoped<IHmiComponentRepository, HmiComponentRepository>();
 builder.Services.AddScoped<IModelVariableRepository, ModelVariableRepository>();
 builder.Services.AddScoped<IMqttServerRepository, MqttServerRepository>();
+builder.Services.AddScoped<IRepository<MqttVariableConfig, int>, MqttVariableConfigRepository>();
 builder.Services.AddScoped<IScadaPageRepository, ScadaPageRepository>();
 builder.Services.AddScoped<IScadaProjectRepository, ScadaProjectRepository>();
 builder.Services.AddScoped<IScheduledTaskRepository, ScheduledTaskRepository>();
@@ -172,6 +175,7 @@ builder.Services.AddScoped<IDatabaseConfigAppService, DatabaseConfigAppService>(
 builder.Services.AddScoped<IDataConversionAppService, DataConversionAppService>();
 builder.Services.AddScoped<IDataModelAppService, DataModelAppService>();
 builder.Services.AddScoped<IDeviceAppService, DeviceAppService>();
+builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddScoped<IExposedInterfaceAppService, ExposedInterfaceAppService>();
 builder.Services.AddScoped<IHmiComponentAppService, HmiComponentAppService>();
 builder.Services.AddScoped<IModelVariableAppService, ModelVariableAppService>();
@@ -192,13 +196,22 @@ builder.Services.AddSingleton<IScadaNotificationService, SignalRNotificationServ
 // 5. Register Background Worker
 builder.Services.AddHostedService<DeviceWorker>();
 
+
+
+
 var app = builder.Build();
 
 // 1. 确保 CORS 最先处理，包括处理 OPTIONS 预检请求
 app.UseCors("AllowSpecificOrigins");
 
 // 自动初始化数据库表结构
-app.InitDatabase();
+// 程序启动时执行数据库初始化
+using (var scope = app.Services.CreateScope())
+{
+    var initializer = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+    await initializer.InitializeAsync();
+}
+
 
 // 初始化 MQTT 管理器
 var mqttManager = app.Services.GetRequiredService<IMqttManager>();

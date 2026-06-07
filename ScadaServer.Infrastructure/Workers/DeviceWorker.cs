@@ -23,13 +23,13 @@ namespace ScadaServer.Infrastructure.Workers
 
         // 设备任务管理
         private readonly ConcurrentDictionary<int, (CancellationTokenSource Cts, Task WorkerTask)> _deviceTasks = new();
-        
+
         // 运行时状态（内存维护，不持久化）
         private readonly ConcurrentDictionary<int, DeviceRuntime> _runtimeCache = new();
-        
+
         // Key -> DeviceId 映射（快速查找）
         private readonly ConcurrentDictionary<string, int> _keyIndex = new();
-        
+
         private readonly Channel<VariableUpdate> _notificationChannel = Channel.CreateUnbounded<VariableUpdate>(
             new UnboundedChannelOptions { SingleReader = true });
         private readonly SemaphoreSlim _lock = new(1, 1);
@@ -155,7 +155,7 @@ namespace ScadaServer.Infrastructure.Workers
 
                 using var scope = _serviceProvider.CreateScope();
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable, int>>();
+                var varRepo = scope.ServiceProvider.GetRequiredService<IModelVariableRepository>();
 
                 var device = await deviceRepo.GetByIdAsync(deviceId);
                 if (device == null)
@@ -191,7 +191,7 @@ namespace ScadaServer.Infrastructure.Workers
             {
                 using var scope = _serviceProvider.CreateScope();
                 var deviceRepo = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
-                var varRepo = scope.ServiceProvider.GetRequiredService<IRepository<ModelVariable, int>>();
+                var varRepo = scope.ServiceProvider.GetRequiredService<IModelVariableRepository>();
 
                 var devices = await deviceRepo.GetListAsync();
                 var activeDeviceIds = devices.Select(d => d.Id).ToHashSet();
@@ -327,8 +327,8 @@ namespace ScadaServer.Infrastructure.Workers
         }
 
         private async Task RunDeviceOrchestratorWithRetry(
-            Device device, 
-            List<ModelVariable> variables, 
+            Device device,
+            List<ModelVariable> variables,
             DeviceRuntime runtime,
             CancellationToken stoppingToken)
         {
@@ -443,11 +443,11 @@ namespace ScadaServer.Infrastructure.Workers
         }
 
         private async Task RunPollingLoop(
-            IProtocolDriver driver, 
-            Device device, 
+            IProtocolDriver driver,
+            Device device,
             DeviceRuntime runtime,
-            List<ModelVariable> variables, 
-            int intervalMs, 
+            List<ModelVariable> variables,
+            int intervalMs,
             CancellationToken stoppingToken)
         {
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(intervalMs));
