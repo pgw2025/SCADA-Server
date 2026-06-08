@@ -3,11 +3,19 @@ using ScadaServer.Runtime;
 
 namespace ScadaServer.WebApi.HostedServices;
 
+/// <summary>
+/// SCADA运行时托管服务，负责在应用启动时初始化运行时管理器
+/// </summary>
 public class RuntimeHostedService : BackgroundService
 {
     private readonly RuntimeManager _runtimeManager;
     private readonly ILogger<RuntimeHostedService> _logger;
 
+    /// <summary>
+    /// 初始化运行时托管服务
+    /// </summary>
+    /// <param name="runtimeManager">运行时管理器</param>
+    /// <param name="logger">日志记录器</param>
     public RuntimeHostedService(
         RuntimeManager runtimeManager,
         ILogger<RuntimeHostedService> logger)
@@ -16,6 +24,7 @@ public class RuntimeHostedService : BackgroundService
         _logger = logger;
     }
 
+    /// <inheritdoc/>
     protected override async Task ExecuteAsync(
         CancellationToken stoppingToken)
     {
@@ -35,6 +44,7 @@ public class RuntimeHostedService : BackgroundService
         }
     }
 
+    /// <inheritdoc/>
     public override async Task StopAsync(
         CancellationToken cancellationToken)
     {

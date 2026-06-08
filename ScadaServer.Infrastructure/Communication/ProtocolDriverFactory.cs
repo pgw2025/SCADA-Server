@@ -4,14 +4,32 @@ using ScadaServer.Domain.Interfaces;
 
 namespace ScadaServer.Infrastructure.Communication
 {
+    /// <summary>
+    /// 协议驱动工厂接口
+    /// </summary>
     public interface IProtocolDriverFactory
     {
+        /// <summary>
+        /// 根据设备类型创建驱动实例
+        /// </summary>
+        /// <param name="deviceType">设备类型</param>
+        /// <returns>协议驱动实例</returns>
         IProtocolDriver CreateDriver(DeviceType deviceType);
+
+        /// <summary>
+        /// 根据驱动名称创建驱动实例
+        /// </summary>
+        /// <param name="driverName">驱动名称</param>
+        /// <returns>协议驱动实例</returns>
         IProtocolDriver CreateDriver(string driverName);
     }
 
+    /// <summary>
+    /// 协议驱动工厂实现
+    /// </summary>
     public class ProtocolDriverFactory : IProtocolDriverFactory
     {
+        /// <inheritdoc/>
         public IProtocolDriver CreateDriver(DeviceType deviceType)
         {
             return deviceType switch
@@ -25,6 +43,7 @@ namespace ScadaServer.Infrastructure.Communication
             };
         }
 
+        /// <inheritdoc/>
         public IProtocolDriver CreateDriver(string driverName)
         {
             return driverName?.ToUpper() switch

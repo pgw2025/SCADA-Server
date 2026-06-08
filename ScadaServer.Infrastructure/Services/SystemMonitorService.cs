@@ -5,26 +5,44 @@ using System.Runtime.InteropServices;
 
 namespace ScadaServer.Infrastructure.Services;
 
+/// <summary>
+/// 系统监控服务，后台运行收集系统性能指标
+/// </summary>
 public class SystemMonitorService : BackgroundService
 {
-    // 将计数器设为静态，以便其他类可以访问或更新
+    /// <summary>
+    /// 总轮询包数（静态计数器）
+    /// </summary>
     private static long _totalPollPackets = 0;
+
+    /// <summary>
+    /// 获取总轮询包数
+    /// </summary>
     public static long TotalPollPackets => _totalPollPackets;
 
+    /// <summary>
+    /// 当前系统状态
+    /// </summary>
     public SystemStatusDto CurrentStatus { get; private set; } = new();
 
     private readonly PerformanceCounter? _cpuCounter;
     private readonly PerformanceCounter? _ramCounter;
     private readonly PerformanceCounter? _diskTimeCounter;
-    
+
     private readonly List<PerformanceCounter> _netInCounters = new();
     private readonly List<PerformanceCounter> _netOutCounters = new();
 
+    /// <summary>
+    /// 增加轮询包计数
+    /// </summary>
     public static void IncrementPollPackets()
     {
         Interlocked.Increment(ref _totalPollPackets);
     }
 
+    /// <summary>
+    /// 初始化系统监控服务
+    /// </summary>
     public SystemMonitorService()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -46,11 +64,11 @@ public class SystemMonitorService : BackgroundService
                     {
                         var inCounter = new PerformanceCounter("Network Interface", "Bytes Received/sec", instance);
                         var outCounter = new PerformanceCounter("Network Interface", "Bytes Sent/sec", instance);
-                        
+
                         // 初次调用以初始化
                         inCounter.NextValue();
                         outCounter.NextValue();
-                        
+
                         _netInCounters.Add(inCounter);
                         _netOutCounters.Add(outCounter);
                     }
@@ -67,6 +85,9 @@ public class SystemMonitorService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// 安全求和性能计数器
+    /// </summary>
     private double SafeSumCounters(IEnumerable<PerformanceCounter> counters)
     {
         double sum = 0;
@@ -84,10 +105,11 @@ public class SystemMonitorService : BackgroundService
         return sum;
     }
 
+    /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var process = Process.GetCurrentProcess();
-        
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var uptime = DateTime.Now - process.StartTime;
@@ -105,12 +127,12 @@ public class SystemMonitorService : BackgroundService
                     cpu = _cpuCounter?.NextValue() ?? 0.0;
                 }
                 catch { }
-                
+
                 var memInfo = GC.GetGCMemoryInfo();
                 long totalBytes = memInfo.TotalAvailableMemoryBytes;
                 float availableMb = _ramCounter?.NextValue() ?? 0.0f;
                 double totalMb = totalBytes / (1024.0 * 1024.0);
-                
+
                 if (totalMb > 0)
                 {
                     memPercent = ((totalMb - availableMb) / totalMb) * 100;
@@ -137,7 +159,7 @@ public class SystemMonitorService : BackgroundService
                 UptimeHours = uptime.Hours,
                 UptimeMins = uptime.Minutes,
                 PollFreq = 2000,
-                TotalPollPackets = TotalPollPackets, 
+                TotalPollPackets = TotalPollPackets,
                 Disks = GetDiskMetrics()
             };
 
@@ -145,6 +167,9 @@ public class SystemMonitorService : BackgroundService
         }
     }
 
+    /// <summary>
+    /// 获取磁盘指标
+    /// </summary>
     private List<DiskInfoDto> GetDiskMetrics()
     {
         var diskList = new List<DiskInfoDto>();
@@ -168,6 +193,7 @@ public class SystemMonitorService : BackgroundService
         return diskList;
     }
 
+    /// <inheritdoc/>
     public override void Dispose()
     {
         _cpuCounter?.Dispose();
